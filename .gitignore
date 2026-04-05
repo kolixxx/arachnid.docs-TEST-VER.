@@ -1,0 +1,7 @@
+custom-ui/node_modules/
+
+build/
+custom-ui/build/
+
+# Локальный исходник Word — не в черновом репозитории
+strongSwan.docx

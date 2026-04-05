@@ -1,0 +1,87 @@
+<style>
+  /* Базовые стили для десктопа */
+  .arachnid-footer-grid {
+    display: grid;
+    grid-template-columns: 250px 1fr 2fr;
+    gap: 2rem;
+    width: 100%;
+    padding-left: 37px;
+  }
+  .arachnid-contact-value {
+    font-size: 36px;
+    margin: 0 !important;
+    font-weight: 500;
+  }
+  .arachnid-footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    width: 100%;
+    margin-top: auto;
+  }
+
+  /* 📱 Стили для мобильных устройств (экраны меньше 900px) */
+  @media screen and (max-width: 900px) {
+    .arachnid-footer {
+      padding: 2rem 1.5rem !important; /* Чуть уменьшаем общие отступы по бокам */
+    }
+    .arachnid-footer-grid {
+      grid-template-columns: 1fr; /* Делаем 1 колонку вместо 3 */
+      padding-left: 0; /* Убираем жесткий левый отступ */
+      gap: 2rem; /* Добавляем воздух между блоками */
+    }
+    .arachnid-contact-value {
+      font-size: 24px; /* Уменьшаем огромный шрифт, чтобы email влез в экран */
+      word-break: break-word; /* Разрешаем перенос длинного email на новую строку, если нужно */
+    }
+    .arachnid-footer-bottom {
+      flex-direction: column-reverse; /* Ставим копирайт под политикой */
+      align-items: flex-start; /* Прижимаем к левому краю */
+      gap: 1.5rem;
+    }
+  }
+</style>
+
+<footer class="footer arachnid-footer" style="background-color: #0138E9; color: white; padding: 3rem 2rem 2.5rem 2rem; font-family: 'Inter', sans-serif;">
+  <div style="width: 100%; display: flex; flex-direction: column; min-height: 120px; justify-content: space-between;">
+
+    <div class="arachnid-footer-grid">
+      
+      <div>
+        <svg width="51" height="58" viewBox="0 0 51 58" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M40.1752 10.6306L41.8491 9.66452L25.1096 0L16.7402 4.83192L16.7395 4.8326L15.0663 5.79871H15.0656L13.3924 6.76483H13.3917L8.37008 9.66452L8.37361 9.66656V17.3963L15.0691 21.2621V13.5304L13.3919 12.5657L11.7214 11.5975L10.0453 10.6298L15.0656 7.73162H15.0663L16.7395 6.76483H16.7402L25.1096 1.9329L40.1752 10.6306ZM13.3919 18.3637L11.7214 17.3963L10.0475 16.4295V12.5657L13.3953 14.4966L13.3919 18.3637Z" fill="white" />
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M23.4351 18.3622V26.0952L16.7396 22.228V14.4964L23.4351 18.3622ZM21.7619 23.1948L21.7626 19.329L18.4142 17.3961V21.2619L21.7619 23.1948Z" fill="white" />
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M50.2192 24.1612V24.1619L50.2186 24.1622V43.4898L48.5447 44.456L46.8708 45.4281L35.153 52.193L33.4798 53.153L30.1313 55.0859L28.4574 56.0547L26.7836 57.0209V37.6918L49.8177 24.3936L48.5454 25.128L46.8715 24.1619V24.1612L43.5237 22.229H43.523L41.8498 21.2622H41.8492V19.3293L43.523 20.2954V20.2961H43.5237L50.2192 24.1612ZM48.5454 42.5251L33.4798 51.2208L31.8059 52.193L28.4574 54.1259V38.6593L48.5454 27.0618V42.5251Z" fill="white" />
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M15.0691 23.1958V30.9267L8.37091 27.0609V19.3293L15.0691 23.1958ZM10.0448 26.0948L13.3926 28.0277V24.1619L10.0448 22.229V26.0948Z" fill="white" />
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M16.7403 24.1622V31.8938L23.4365 35.7596V28.0273L16.7403 24.1622ZM21.7619 32.8599L18.4135 30.927V27.0612L21.7619 28.9941V32.8599Z" fill="white" />
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M33.4798 14.4975V22.2298L26.7836 26.0949V18.3626L33.4798 14.4975ZM28.4574 23.1959L31.8059 21.2623V17.3965L28.4574 19.3294V23.1959Z" fill="white" />
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M26.7836 28.0273V35.7596L33.4798 31.8938V24.1622L26.7836 28.0273ZM28.4581 32.8606V28.9941L31.8052 27.0612V30.927L28.4581 32.8606Z" fill="white" />
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M35.1535 23.1958L41.849 19.3293V27.0616L35.1535 30.9267V23.1958ZM40.1752 26.0948V22.2296L36.8274 24.1619V28.0277L40.1752 26.0948Z" fill="white" />
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M38.5013 11.5969L36.8274 12.5657L35.1535 13.5318V21.2621L41.849 17.3969V9.66464L38.5013 11.5969ZM40.1752 16.4301L36.8274 18.3624V14.4966L40.1752 12.5657V16.4301Z" fill="white" />
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M8.37009 21.2622V19.3293L0 24.1612L0.00346472 24.1632V43.4912L23.4358 57.0188V37.6925L13.3918 31.8938L11.7213 30.927L1.67479 25.1275L3.34777 24.1619V24.1612L8.37009 21.2622ZM21.7619 54.1218L20.088 53.1557L18.4142 52.193L13.3925 49.2939L11.7213 48.3231L1.67398 42.5251V27.0612L10.0434 31.8938L11.7213 32.8599L21.7613 38.6579L21.7619 54.1218Z" fill="white" />
+        </svg>
+      </div>
+
+      <div style="display: flex; flex-direction: column; justify-content: flex-start; padding-top: 5px;">
+        <p style="font-size: 12px; color: rgba(255,255,255,0.6); margin: 0px; letter-spacing: 0.5px;">EMAIL US:</p>
+        <p class="arachnid-contact-value">hello@arachnd.ru</p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; justify-content: flex-start; padding-top: 5px;">
+        <p style="font-size: 12px; color: rgba(255,255,255,0.6); margin: 0px; letter-spacing: 0.5px;">CALL US:</p>
+        <p class="arachnid-contact-value">+7 (812) 509-41-31</p>
+      </div>
+
+    </div>
+
+    <div class="arachnid-footer-bottom">
+      <div>
+        <span style="font-size: 12px; color: rgba(255,255,255,0.6); letter-spacing: 0.5px;">2026 &copy; ARACHNID</span>
+      </div>
+      <div>
+        <a href="#" style="color: rgba(255,255,255,0.6); font-size: 12px; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px; transition: color 0.2s;">ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ</a>
+      </div>
+    </div>
+
+  </div>
+</footer>

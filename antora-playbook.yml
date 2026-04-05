@@ -1,0 +1,12 @@
+site:
+  title: Arachnid Docs
+  url: http://localhost
+  start_page: arachnid::index.adoc
+content:
+  sources:
+  - url: .
+    branches: HEAD
+    start_path: content
+ui:
+  bundle:
+    url: ./custom-ui/build/ui-bundle.zip

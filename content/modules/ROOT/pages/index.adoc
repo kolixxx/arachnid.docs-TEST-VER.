@@ -1,0 +1,39 @@
+= Arachnid Documentation
+
+== INTRODUCTION
+
+* https://#[What's New in strongSwan 6.0]
+* https://#[An introduction to strongSwan]
+
+== CONFIGURATION EXAMPLES
+
+=== Modern vici-based Scenarios
+
+These scenarios use the modern https://#[Versatile IKE Control Interface] (VICI) as implemented by the `vici` plugin and the `swanctl` command line tool.
+
+* https://#[`Quickstart`] examples
+* https://#[`IKEv2`] examples
+* https://#[`IKEv1`] examples
+* https://#[`IPv6`] examples
+
+=== Legacy stroke-based Scenarios
+
+These scenarios use the deprecated `stroke` interface as implemented by the `stroke` plugin and the `ipsec` command line tool.
+
+* https://#[`IKEv2`] examples
+* https://#[`IKEv1`] examples
+* https://#[`IPv6`] examples
+
+[NOTE]
+====
+https://#[Notes on Configuration Examples]
+====
+
+== PLATFORM SECURITY
+
+* https://#[Using TPM 2.0 keys with strongSwan]
+
+== TOOLS
+
+* `swanctl` configures, controls and monitors the `charon` IKE daemon
+* `pki` generates and analyzes RSA, ECDSA or EdDSA private keys and X.509 certificates
