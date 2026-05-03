@@ -199,6 +199,9 @@ cd arachnid.docs
 cd custom-ui/
 docker run --rm -v "${PWD}:/workspace" -w /workspace node:18 bash -c "npm install && npx gulp bundle"
 cd ..
+или
+docker run --rm -v "${PWD}:/workspace" -w /workspace node:18 npx gulp bundle
+если npm пакеты уже установлены
 ```
 
 После сборки должен появиться файл:
