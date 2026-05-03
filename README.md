@@ -241,14 +241,14 @@ docker run -v "${PWD}:/antora" --rm -t antora/antora antora-playbook.yml
 build/site/
 ```
 
-Для локального просмотра можно запустить Nginx:
+Для локального просмотра можно запустить python HTTP server:
 
 ```bash
-docker run --rm -p 8080:80 -v "${PWD}/build/site:/usr/share/nginx/html:ro" nginx
+python3 -m http.server 1337
 ```
 
 После этого сайт будет доступен по адресу:
 
 ```text
-http://localhost:8080
+http://localhost:1337
 ```
