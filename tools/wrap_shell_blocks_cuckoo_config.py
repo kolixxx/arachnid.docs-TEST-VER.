@@ -16,6 +16,11 @@ def has_cyrillic(t: str) -> bool:
 
 
 def is_config_file_desc(s: str) -> bool:
+    # Описательные строки «имя.conf: пояснение» — не shell
+    if re.match(r"^[a-zA-Z_<>][\w.<>]*\.conf\s*:", s):
+        return True
+    if s.startswith("<machinery.conf>") or s.startswith("<machinery"):
+        return True
     return bool(
         re.match(r"^(?:[a-zA-Z_<>]+\w*\.conf|<machinery\.conf>):\s*$", s)
     )
