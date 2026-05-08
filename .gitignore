@@ -5,3 +5,6 @@ custom-ui/build/
 
 # Локальный исходник Word — не в черновом репозитории
 strongSwan.docx
+
+# Входящие черновики (DOCX и т.д.) — только локально, не в git
+incoming/

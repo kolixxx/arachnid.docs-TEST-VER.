@@ -1,3 +1,572 @@
 = Варианты конфигурации и сценарии настройки Cuckoo Sandbox
 
-Пустая страница.
+В первую очередь необходимо установить все зависимости для cuckoo sandbox. В терминале выполните команды:
+
+[source,shell]
+----
+$ sudo apt-get install python python-pip python-dev libffi-dev libssl-dev
+
+$ sudo apt-get install python-virtualenv python-setuptools
+
+$ sudo apt-get install libjpeg-dev zlib1g-dev swig
+----
+
+Для корректной работы веб-интерфейса Cuckoo Sandbox необходимо установить mongodb:
+
+[source,shell]
+----
+sudo apt-get install mongodb
+----
+
+Для работы с БД разработчик рекомендует использовать PostgreSQL:
+
+[source,shell]
+----
+sudo apt-get install postgresql libpq-dev
+----
+
+Pydeep — это необязательный плагин, который можно установить вручную. Для удобства приведена ссылка: pydeep install(https://github.com/kbandla/pydeep) - примечание: для этого требуется пакет libfuzzy-dev.
+
+Установка Pydeep. Сначала установите пакет libfuzzy-dev:
+
+[source,shell]
+----
+sudo apt install libfuzzy-dev
+----
+
+Теперь необходимо установить ssdeep. Это утилита для использования алгоритма нечёткого хеширования. Для этого в терминале выполните:
+
+[source,shell]
+----
+sudo apt install ssdeep
+----
+
+Обновите кэш общих библиотек при помощи команды:
+
+[source,shell]
+----
+sudo ldconfig
+----
+
+Чтобы установить pydeep – его нужно загрузить и разархивировать:
+
+[source,shell]
+----
+cd ~/Downloads
+----
+
+загружаем исходники pydeep
+
+[source,shell]
+----
+wget https://github.com/kbandla/pydeep/archive/refs/heads/master.tar.gz
+
+tar -xvf master.tar.gz
+
+cd pydeep-master/
+
+python setup.py build
+
+python setup.py test -- должны увидеть в терминале Test successful
+
+sudo python setup.py install -- устанавливает pydeep
+----
+
+Чтобы убедиться, что pydeep установлен корректно, выполните ВНЕ директорий в терминале:
+
+[source,shell]
+----
+python -c "import pydeep; print(pydeep)"
+----
+
+Вы увидите в терминале:
+
+[source,shell]
+----
+<module 'pydeep' from '/usr/local/lib/python2.7/dist-packages/pydeep.so'>
+----
+
+Теперь необходимо установить ПО для виртуализации (virtualbox). Cuckoo Sandbox поддерживает VirtualBox 4.3, 5.0, 5.1 и 5.2:
+
+[source,shell]
+----
+echo deb http://download.virtualbox.org/virtualbox/debian xenial contrib | sudo tee -a /etc/apt/sources.list.d/virtualbox.list
+
+wget -q https://www.virtualbox.org/download/oracle_vbox_2016.asc -O- | sudo apt-key add -
+
+sudo apt-get update
+
+sudo apt-get install virtualbox-5.2
+----
+
+Для большей информации обратитесь к official documentation.
+
+Разработчики Cuckoo Sandbox рекомендуют использовать отдельного юзера в системе для запуска песочницы. Это необходимо для минимальной безопасности, если, например, машина Cuckoo Sandbox создана не только для песочницы. Если вы хотите создать отдельного пользователя – ознакомьтесь с официальной документацией.
+
+Для того чтобы получить доступ к сетевой активности, выполняемой вредоносным ПО во время его запуска, вам потребуется правильно настроенный сетевой анализатор, способный перехватывать трафик и сохранять его в файл. Tcpdump – утилита для захвата и анализа пакетов в компьютерных сетях. Cuckoo Sandbox использует tcpdump по умолчанию. Для установки в терминале выполните:
+
+[source,shell]
+----
+sudo apt-get install tcpdump apparmor-utils
+
+sudo aa-disable /usr/sbin/tcpdump
+----
+
+Т.к. отдельный юзер не создан, для tcpdump сделайте файл испольняемым:
+
+[source,shell]
+----
+sudo chmod +s /usr/sbin/tcpdump
+----
+
+Установка m2crypto. В настоящее время библиотека M2Crypto поддерживается только при установленном SWIG. В системах типа Ubuntu/Debian это можно сделать следующим образом:
+
+[source,shell]
+----
+sudo apt-get install swig
+----
+
+Если в системе установлен SWIG, M2Crypto можно установить следующим образом:
+
+[source,shell]
+----
+sudo pip install m2crypto==0.24.0
+----
+
+Установка guacd. guacd — это необязательная служба, которая обеспечивает слой трансляции для RDP, VNC и SSH для функций удаленного управления в веб-интерфейсе Cuckoo. Если вы используете Ubuntu версии 16.04.7 используйте следующие команды для установки:
+
+[source,shell]
+----
+sudo apt -y install libcairo2-dev libjpeg-turbo8-dev libpng-dev libossp-uuid-dev libfreerdp-dev
+
+mkdir /tmp/guac-build && cd /tmp/guac-build
+
+wget https://archive.apache.org/dist/guacamole/0.9.14/source/guacamole-server-0.9.14.tar.gz
+
+$ tar xvf guacamole-server-0.9.14.tar.gz && cd guacamole-server-0.9.14
+
+./configure --with-init-dir=/etc/init.d
+
+make && sudo make install && cd ..
+
+sudo ldconfig
+
+sudo /etc/init.d/guacd start
+
+#вы должны увидеть:
+
+Starting guacd: guacd [3603]: INFO: Guacamole proxy daemon (guacd) version 0.9.14 started
+
+SUCCESS
+----
+
+При установке из исходного кода убедитесь, что у вас не установлена ​​другая версия каких-либо библиотек libguac- из вашего менеджера пакетов, иначе вы можете столкнуться с проблемами из-за несовместимости, которые могут привести к сбою guacd.
+
+проверить можно при помощи:
+
+[source,shell]
+----
+$ apt list --installed | grep libguac <- выведет список всех установленных пакетов/библиотек, содержащих в названии libguac. если что-то отобразится - удалите вручную при помощи sudo apt remove <название>
+----
+
+Обратите внимание, что для использования функциональности Cuckoo Control, предоставляемой Guacamole, также необходимо установить VirtualBox Extension Pack. Проверьте версию установленной Oracle VirtualBox при помощи:
+
+[source,shell]
+----
+vboxmanage --version
+
+#вывод должен быть
+
+5.2.44r139111
+----
+
+Загрузите extension pack в папку ~/Downloads при помощи:
+
+[source,shell]
+----
+wget -P ~/Downloads https://download.virtualbox.org/virtualbox/5.2.44/Oracle_VM_VirtualBox_Extension_Pack-5.2.44.vbox-extpack
+----
+
+Затем запустите VirtualBox графически. В верхнем меню выберите: Файл → Настройки → Расширения. Нажмите + и выберите скачанный .vbox-extpack. Нажмите Install. Согласитесь с условиями и введите пароль root.
+
+Установка Cuckoo Sandbox. Установка последней версии Cuckoo очень проста и выполняется следующим образом. Обратите внимание, что рекомендуется сначала обновить библиотеки pip и setuptools, поскольку они часто устаревают, что приводит к проблемам при попытке установить Cuckoo (см. также DistributionNotFound / No distribution matching the version..). Вполне вероятно, что у вас могут отсутствовать один или несколько системных пакетов, необходимых для сборки различных зависимостей Python. Пожалуйста, прочтите и перечитайте раздел «Требования», чтобы решить подобные проблемы.
+
+Настоятельно рекомендуется устанавливать Cuckoo в виртуальном окружении, которое выглядит примерно следующим образом:
+
+нужно находится в ~/ директории, а не / корневой
+
+[source,shell]
+----
+$ virtualenv cuckoovenv # создание виртуального окружения venv python2, а не python3+
+
+$ . cuckoovenv/bin/activate # переход в виртуальное окружение
+
+(venv)$ pip install -U pip setuptools
+
+(venv)$ pip install -U cuckoo
+----
+
+В зависимости от настроек вашей среды (virtualenvs и т. д.) вам может потребоваться указать версию pip для использования. Просто замените pip в приведенных выше командах на pip2.
+
+Настройка конфигурации Cuckoo. Cuckoo использует несколько основных конфигурационных файлов:
+
+[source,shell]
+----
+cuckoo.conf: для настройки общего поведения и параметров анализа.
+----
+
+auxiliary.conf: для включения и настройки вспомогательных модулей.
+
+<machinery.conf>: для определения параметров вашего программного обеспечения виртуализации (файл имеет то же имя, что и модуль машинного оборудования, который вы выбираете в cuckoo.conf, например, если вы используете VirtualBox - файл для его настройки virtualbox.conf).
+
+memory.conf: конфигурация волатильности.
+
+processing.conf: для включения и настройки модулей обработки.
+
+reporting.conf: для включения или отключения форматов отчетов.
+
+Для работы Cuckoo вам следует как минимум отредактировать файлы cuckoo.conf и <machinery.conf>.
+
+[source,shell]
+----
+cuckoo.conf. Первый файл для редактирования — это $CWD/conf/cuckoo.conf. Обратите внимание, что, говоря о $CWD, мы будем ссылаться на рабочий каталог Cuckoo. Файл cuckoo.conf содержит общие параметры конфигурации, которые вам следует проверить или хотя бы ознакомиться с ними перед запуском Cuckoo. Файл в основном снабжен комментариями и понятен сам по себе, но некоторые параметры могут представлять для вас особый интерес:
+----
+
+machinery в cuckoo:
+
+Этот параметр определяет, какой модуль Machinery вы хотите использовать для взаимодействия Cuckoo с вашими машинами анализа. Значение должно быть именем модуля без расширения (например, virtualbox или vmware).
+
+ip и port в resultserver:
+
+Эти параметры определяют локальный IP-адрес и порт, к которому Cuckoo будет пытаться подключиться к серверу результатов. Убедитесь, что они соответствуют сетевой конфигурации ваших аналитических машин, иначе они не смогут вернуть результаты.
+
+connection в database:
+
+Строка подключения к базе данных определяет, как Cuckoo будет подключаться к внутренней базе данных. Вы можете использовать любую СУБД, поддерживаемую SQLAlchemy, используя допустимый синтаксис URL-адресов базы данных.
+
+Внимание! Проверьте IP-адрес сервера результатов на вашем сетевом интерфейсе! Некоторые программы виртуализации (например, Virtualbox) не активируют виртуальные сетевые интерфейсы до запуска виртуальной машины. Cuckoo необходимо активировать интерфейс, на котором вы привязываете сервер результатов, до запуска, поэтому проверьте настройки вашей сети. Если вы не уверены, как активировать интерфейс, хороший способ — вручную запустить и остановить виртуальную машину анализа, это активирует виртуальную сеть. Если вы используете NAT/PAT в своей сети, вы можете установить IP-адрес сервера результатов на 0.0.0.0, чтобы он прослушивал все интерфейсы, а затем использовать специальные параметры resultserver_ip и resultserver_port в файле machinery.conf, чтобы указать адрес и порт, которые видят все машины. Обратите внимание, что если вы установите IP-адрес сервера результатов на 0.0.0.0 в cuckoo.conf, вам необходимо установить resultserver_ip для всех ваших виртуальных машин.
+
+Откройте файл /home/вашюзер/.cuckoo/conf/cuckoo.conf при помощи gedit или любого другого удобного редактора текста. Параметр machinery = virtualbox по умолчанию, рекомендую так или иначе проверить это. Если вы настраиваете cuckoo sandbox на той же машине, на которой его будете использовать, проверьте параметр resultserver ip = 192.168.56.1 (по умолчанию, этот адрес присваивается Host-only интерфейсу, когда вы его создаете в VirtualBox). Найдите параметр reschedule = no и укажите yes. Параметр version_check = yes укажите no. Параметр memory_dump укажите no. Остальные параметры оставьте по умолчанию, или, если требуется, настраивайте на свое усмотрение, используя как справку комментарии к параметрам в конфигурационном файле непосредственно. Не забудьте сохранить файл после внесения изменений.
+
+auxiliary.conf. Вспомогательные модули — это скрипты, которые выполняются одновременно с анализом вредоносного ПО; этот файл определяет их параметры. В файле auxiliary.conf нужно проверить параметр # Enable PCAP replay capabilities. enabled = yes и установить значение no. Остальные параметры настраивайте на свое усмотрение, если необходимо. Если нет, то оставьте значения по умолчанию и сохраните файл.
+
+<’machinery’>.conf. Модули Machinery — это скрипты, определяющие, как Cuckoo должен взаимодействовать с выбранным вами программным обеспечением виртуализации. Каждый модуль имеет свой собственный конфигурационный файл, определяющий параметры доступных виртуальных машин. Например, Cuckoo поставляется с модулем Machinery для VMware. Для его использования необходимо указать vmware в качестве параметра Machinery в файле $CWD/conf/cuckoo.conf и заполнить файл $CWD/conf/vmware.conf доступными виртуальными машинами. Cuckoo предоставляет некоторые модули по умолчанию, и в рамках этого руководства мы будем предполагать, что вы будете использовать VirtualBox. Поэтому откройте файл virtualbox.conf при помощи любого текстового редактора и настройте следующие параметры:
+
+В секции cuckoo1 параметр ip = по умолчанию стоит 192.168.56.101. Укажите другой адрес, если ваш адрес гостевой машины отличается (на гостевой машине после установки образа windows 10 x64 И ПОСЛЕ НАСТРОЙКИ ПАРАМЕТРОВ СЕТЕВОГО АДАПТЕРА выполните в cmd ipconfig и там вы увидите ipv4 адрес машины, его и нужно указать. В моем случае это 192.168.56.101);
+
+параметр snapshot = укажите название снапшота, на который Cuckoo Sandbox будет восстанавливать ГОСТЕВУЮ VM после каждого анализа, чтобы привести ее в исходное состояние (например, Snapshot1 в случае этой лабораторной работы);
+
+Остальные параметры изменяйте на ваше усмотрение или оставьте по умолчанию. Конкретно в этой документации разбирается установка Cuckoo Sandbox на хост машину с Linux Ubuntu, где гостевая машина использует ОС Windows 10 x64.
+
+processing.conf. Этот файл позволяет включать, отключать и настраивать все модули обработки. Эти модули расположены в каталоге cuckoo.processing и определяют способ обработки необработанных данных, собранных в ходе анализа. Раздел для каждого модуля обработки находится в файле $CWD/conf/processing.conf. Откройте файл processing.conf при помощи любого текстового редактора и настройте следующие параметры:
+
+Найдите секцию [memory] и установите параметр enabled значение = no. Также найдите параметр extract_dll в секции [procmemory] и установите значение = yes. Проверьте параметр tesseract в секции [screenshots], чтобы значение было установлено = no.
+
+reporting.conf. Файл $CWD/conf/reporting.conf содержит информацию о генерации отчетов. Указывая yes или no, вы можете разрешить или запретить создание таких отчетов. Откройте файл reporting.conf при помощи любого текстового редактора и настройте следующие параметры:
+
+В этом файле обязательно нужно в секции mongodb указать enabled = yes. В параметре identifier = указать имя хоста (его можно получить, используя команду hostname в терминале). Остальные параметры изменяйте на свое усмотрение. Не забудьте сохранить файл.
+
+routing.conf. В этой документации рассматривается способ маршрутизации inetsim. Поэтому дальнейшая настройка файла routing.conf описана только для него. Если вам необходимо использовать другой(-ие) способ(-ы) - обратитесь к официальной документации Cuckoo Sandbox. Откройте файл routing.conf при помощи любого текстового редактора и настройте следующие параметры:
+
+Параметр 'route = none' укажите inetsim. В секции [inetsim] параметр enabled = no укажите yes. server = 192.168.56.1 (или ваш адрес, на котором работает inetsim сервер). Сохраните и закройте файл.
+
+Установка inetsim. Для установки INetSim с помощью apt добавьте репозиторий INetSim Debian Archive в список источников apt в терминале:
+
+[source,shell]
+----
+sudo su
+
+echo "deb http://www.inetsim.org/debian/ binary/" > /etc/apt/sources.list.d/inetsim.list
+----
+
+Для доступа к исходным кодам пакетов Debian добавьте также:
+
+[source,shell]
+----
+echo "deb-src http://www.inetsim.org/debian/ source/" >> /etc/apt/sources.list.d/inetsim.list
+----
+
+Чтобы разрешить apt проверять цифровую подпись файла Release архива Debian INetSim, добавьте ключ подписи архива INetSim в список доверенных ключей apt:
+
+[source,shell]
+----
+wget -O - https://www.inetsim.org/inetsim-archive-signing-key.asc | apt-key add -
+----
+
+(Не пропустите завершающее тире!). После установки ключа обновите кэш доступных пакетов:
+
+[source,shell]
+----
+apt update
+
+apt install inetsim
+----
+
+Проверьте после установки текущую версию inetsim в терминале:
+
+[source,shell]
+----
+inetsim –version
+----
+
+Проверьте, что inetsim работает, используя в терминале:
+
+[source,shell]
+----
+systemctl status inetsim
+----
+
+Также можно использовать curl, чтобы убедиться, что все установлено корректно:
+
+[source,shell]
+----
+curl http://127.0.0.1
+----
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-01.png[Снимок экрана 1]
+
+Затем, необходимо открыть и отредактировать файл /etc/inetsim/inetsim.conf. В нем нужно найти секцию #service_bind_address 10.10.10.1, убрать символ # перед параметром и указать адрес IP хоста в Host-Only сети. Это тот адрес, который вы получите после создания Host-only network интерфейса внутри VirtualBox (vboxnet0). Также в этом файле нужно найти параметр dns_default_ip. Также убрать символ # перед ним и указать тот же адрес Host-only network интерфейса. Это нужно для того, чтобы вредоносное ПО во время анализа не зависало и получало DNS-resolve. В нашем случае оба параметра получают адрес 192.168.56.1. После изменения настроек проверьте статус inetsim:
+
+[source,shell]
+----
+sudo systemctl status inetsim
+----
+
+Если inetsim Active(Running) - перезапустите его при помощи:
+
+[source,shell]
+----
+sudo systemctl restart inetsim
+
+InetSim будет перезапущен с новыми настройками.
+----
+
+Подготовка Guest VM. После правильной установки программного обеспечения виртуализации вы можете приступить к созданию всех необходимых виртуальных машин. В главе, посвященной песочнице, вы найдете несколько советов и рекомендаций по проектированию и созданию виртуализированной среды. При создании виртуальной машины Cuckoo не требует какой-либо специальной настройки. Вы можете выбрать параметры, которые наилучшим образом соответствуют вашим потребностям.
+
+Создание Guest VM. Внимание! Важно использовать образ ОС для гостевой машины АНГЛИЙСКОЙ ЛОКАЛИЗАЦИИ! во избежание ошибок работы Cuckoo Sandbox. Настоятельно не рекомендуется устанавливать образ ОС любой другой локализации (и дело не в выборе языка системы). К этой лабораторной работе будет прикреплен образ Windows_10_x64, дальнейшая установка будет рассматривать именно его.
+
+Создаем виртуальную машину Windows 10 64 bit и называем ее 'cuckoo1'. Memory 2048 MB, Hard Disk VDI 32 GB и загружаем образ, прикрепленный к этой лабораторной работе. Шаги установки базовые, постарайтесь отключить по максимуму по возможности (например, доступ к местоположению, подбор рекламы и т.п.).
+
+Пока Windows 10 устанавливается, перейдем к созданию host-only интерфейса. Для этого в GUI VirtualBox перейдите в Global Tools (стрелочка на этой кнопке) -> Host Network Manager. У вас откроется новое окно.
+
+Нажмите кнопку Create слева и у вас появится новый vboxnet0 интерфейс с автоматически полученным адресом (по умолчанию 192.168.56.1/24). Этот адрес вы и должны будете указать в resultserver ip = файла cuckoo.conf! Также не забудьте убрать галочку DHCP Server Enable.
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-02.png[Снимок экрана 2]
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-03.png[Снимок экрана 3]
+
+Возвращаемся к установке Windows 10. Когда просят авторизоваться нажмите Domain Instead. Name указываем cuckoo. Password оставляем пустым и нажимаем Next. Privacy settings отключаем все. После отображения рабочего стола рекомендуется установить VMBox Guest Additions. Когда у вас откроется Microsoft Edge браузер - нажмите Start without your data. Уберите галочку Bring over your data... и нажмите confirm and continue. Затем continue without Google data.  Уберите галочку Make your Microsoft experience more useful to you и нажмите Confirm and start browsing. Браузером для анализа будет использоваться Firefox в любом случае. Как только вы увидите рабочий стол - начните установку дополнительных зависимостей для работы с cuckoo sandbox.
+
+Есть 2 варианта как загружать все установщики дополнительных зависимостей. 1. Использовать Shared Folder между host и guest машиной. 2. Загружать на гостевой виртуальной машине все вручную при помощи Microsoft Edge браузера (в настройках сетевых адаптеров виртуальной машины должен быть выбран NAT в таком случае). Загрузите установщик python-2.7.10.amd64.msi с официального сайта https://www.python.org/ftp/python/2.7.10/python-2.7.10.amd64.msi (прямая ссылка на скачивание). Выполните установку с базовыми настройками без изменений. Чтобы передать файл через Shared Folder - в окне виртуальной машины перейдите в Machine -> Settings -> Shared Folders. Справа нажмите на знак + и укажите папку Downloads на хостовой машине. Нажмите OK. Теперь нужно установить Guest Additions CD Image VirtualBox. Для этого в окне виртуальной машины сверху откройте Devices -> Insert Guest Additions CD image... В Computer на VM вы увидите CD Drive. Откройте его и запустите файл VBoxWindowsAdditions. Оставьте все настройки по умолчанию и завершите установку. Разрешите создать ПО, когда появится окно. В конце установке выберите Reboot Now и нажмите Finish. После перезагрузки перейдите в Computer и для VirtualBox Guest Storage выполните Eject. На гостевой машине в This Computer вы увидите Network locations (1) Downloads (\\vboxsrv) VBoxSharedFolderFS. Открыв его, вы увидите папку downloads с машины хоста и сможете запускать установщики прямо оттуда. Если таковой нет – перейдите в Network и вы увидите папку там.
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-04.png[Снимок экрана 4]
+
+Затем установите следующее ПО для Windows 10-x64:
+
+Adobe Acrobat Reader X (https://www.my-acrobat-reader.com/adobe-10/) всю установку производите по умолчанию, без изменений в пути и пр. После установки откройте Adobe Reader X и выберите Always Open with Protected Mode disabled..NET Framework 4.5 (https://www.microsoft.com/ru-ru/download/details.aspx?id=30653) (мне на Windows 10 установщик сказал, что в системе уже установлен .net framework такой же или версией выше). Через regedit можно найти информацию о .net framework. На Windows 10 .NET ставится вместе с системой.VC++ 2005 x86 x64 ОБЕ ВЕРСИИ!!! (https://www.microsoft.com/en-us/download/details.aspx?id=26347)VC++ 2008 x86 x64 ОБЕ ВЕРСИИ!!! (https://www.microsoft.com/en-us/download/details.aspx?id=26368)VC++ 2010 x86 x64 ОБЕ ВЕРСИИ!!! (https://www.microsoft.com/en-us/download/details.aspx?id=26999)VC++ 2012 x86 и x64 ОБЕ ВЕРСИИ!!! (https://www.microsoft.com/en-us/download/details.aspx?id=30679)VC++ 2013 x86 и x64 ОБЕ ВЕРСИИ!!! (https://www.microsoft.com/en-us/download/details.aspx?id=40784)VC++ 2015 x86 и x64 ОБЕ ВЕРСИИ!!! (https://www.microsoft.com/en-us/download/details.aspx?id=48145)Python Pillow 2.9.0.win-amd64-py2.7.exe (https://pypi.org/project/pillow/2.9.0/)По желанию еще можно установить Microsoft Office Pack 2010 x64. После установки Microsoft Office Pack 2010 требуется отключить все возможные защиты внутри каждого приложения из пакета.Firefox (можно последней версии для windows 10, главное, чтобы Firefox был ENG локализации). При установке откажитесь от дополнительной установки Maintenance Service. После установки запустите Firefox. Использовать его по умолчанию или нет решайте сами, на работу cuckoo это не повлияет, т.к. cuckoo запускает браузер из его местоположения в системе. Пропустите шаги настройки firefox в мастере (при первом запуске у вас откроется вкладка) и нажмите Start browsing.
+
+Важно! В Firefox не стоит использовать какие-либо расширения, логиниться в аккаунты, подключать его к реальной сети и включать sync. Этот firefox на guest vm - подопытная крыса.
+
+Теперь настройте Firefox. Для этого перейдите в меню Settings -> Privacy & Security -> Security и отключите галочки Block dangerous and deceptive content, Block dangerous downloads, Warn about unwanted software. Enchanced Tracking Protection поставьте Standard, а не Strict. Найдите галочку Block pop-ups and third-party redirects и уберите ее, а также рядом стоящую галочку Warn when websites try to install extensions. В Firefox data collection and use уберите все галочки (Send technical...; allow personalized...; install and run...; allow firefox to improve...; send daily usage...). Отключите HTTPS-Only Mode. Отключите DNS over HTTPS. Во вкладке General найдите Firefox Updates и выключите автоматические обновления. Затем в адресной строке напишите "about :config" (слитно все). Уберите галочку Warn me when I attampt to access these preferences и нажмите Accept the Risk and Continue. Создайте следующие правила:
+
+browser.safebrowsing.enabled - String - вручную напишите false и нажмите галочку.
+
+browser.safebrowsing.malware.enabled - false (у меня оно уже было)
+
+browser.safebrowsing.downloads.enabled - false (у меня оно уже было)
+
+browser.download.useDownloadDir - true (у меня оно уже было)
+
+browser.helperApps.neverAsk.saveToDisk - application/octet-stream (у меня оно уже было, надо было нажать на знак карандаша и вписать значение вручную)
+
+security.enterprise_roots.enabled - true (у меня оно уже было)
+
+Также по желанию можно сделать параметр security.sandbox.content.level - 0, это сделает браузер менее защищенным, но более "эксплуатируемым".
+
+Также необходимо настроить Adobe Acrobat Reader. Откройте его и перейдите в Edit -> Preferences -> Updater -> Check for updates поставить Do not download or install updates automatically. Затем перейдите в Trust Manager -> Internet Access from PDF files outside the web browser - Change Settings -> Allow PDF files to access all web sites -> OK. Затем вкладка Security - Verify signatures when the document is opened уберите галочку. Вкладка Internet - Connection Speed - укажите LAN. Затем нажмите OK - Yes, когда высветится запрос от Adobe Reader Updater (это разрешение на изменение настроек updater'a). Закройте Acrobat.
+
+Важный момент: некоторые приложения при первом запуске требуют какой-то минимальной настройки. Советую проверить все установленные и исполняемые приложения и запустить их хотя бы 1 раз, чтобы проверить, что не высвечивается какой-либо мастер настройки и т.п.
+
+Перезагрузите виртуальную машину после проделанных шагов.
+
+После перезагрузки откройте Windows Security -> Virus & threat protection -> Manage settings. Выключите все пункты. Вернитесь в Windows Security и откройте Firewall & network protection -> Firewall notification settings -> Manage notifications -> выключите все пункты.
+
+Откройте Control Panel -> User Accounts -> User Accounts -> Change User Account Control Settings -> опустите ползунок в самый низ Never Notify -> OK.
+
+Вернитесь в Control Panel -> System and Security -> Windows Defender Firewall -> Turn Windows Defender Firewall on or off -> Поставьте везде Turn off -> OK.
+
+Откройте Settings -> Windows Update -> Advanced Options -> убедитесь, что все выключено.
+
+Нажмите ПКМ по Пуск -> Run -> gpedit.msc -> Computer configuration -> Administrative Templates -> Windows Components -> Microsoft Defender Antivirus. Справа в меню выберите Turn off Microsoft Defender Antivirus и нажмите дважды. Укажите Enabled -> Apply -> OK.
+
+Затем перейдите в Computer Configuration -> Administrative Templates -> Windows Components -> Windows Update. Справа в меню найдите параметр Configure Automatic Updates и нажмите дважды. Укажите Disabled -> Apply -> OK. Перезагрузите систему.
+
+[#guest-network]
+
+Виртуальные сети. Для корректной работы вам потребуется настроить сеть вашей машины таким образом, чтобы хост и гостевая система могли общаться. Рекомендуется проверить доступ к сети, отправив ping на гостевую систему, чтобы убедиться, что виртуальная сеть была настроена правильно. Используйте только статические IP-адреса для вашей гостевой системы, поскольку Cuckoo не поддерживает DHCP, и его использование нарушит вашу настройку. Этот этап во многом зависит от ваших собственных требований и характеристик вашего программного обеспечения для виртуализации.
+
+Внимание: Ошибки виртуальной сети! Виртуальная сеть — жизненно важный компонент для Cuckoo, вы должны быть абсолютно уверены, чтобы обеспечить связь между хостом и гостевой системой. Большинство проблем, о которых сообщают пользователи, связаны с неправильной настройкой их сети. Если вы не уверены в этом, проверьте документацию к вашему программному обеспечению для виртуализации и проверьте связь с помощью ping и telnet.
+
+Нажмите в окне виртуальной машины сверху Machine -> Settings. Перейдите в вкладку Network. Adapter 1 укажите Attached to Host-only adapter и укажите vboxnet0. Перезапустите виртуальную машину. После перезагрузки, внутри виртуальной машины перейдите в Network & Internet Settings (ПКМ по значку интернета на панели быстрого доступа). Перейдите в Change adapter settings внизу этого окна. У интерфейса Local Area Connection (у вас он может называться по-другому, например, Ethernet) нажмите ПКМ -> Properties. Уберите галочку с Internet Protocol Version 6. Выберите Internet Protocol Version 4 и нажмите properties. Выберите Use the following IP address и укажите адрес 192.168.56.101 (или ваш другой, но, если вы следуете строго шагам этой лабораторной работы, укажите 192.168.56.101), mask 255.255.255.0, default gateway 192.168.56.1, Preferred DNS server укажите 192.168.56.1. Alternate указывать не нужно. Поставьте галочку Validate Settings upon exit -> OK. Если у вас отобразиться окно проверки ошибок и появится ошибка – не обращайте внимания и спокойной закройте его. Проверьте настройки, используя ipconfig в cmd.
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-05.png[Снимок экрана 5]
+
+После настройки, попробуйте ping на хост машину. В моем случае адрес хост-машины в сети с guest VM 192.168.56.1. Тогда из терминала Windows 10 я использую:
+
+[source,shell]
+----
+ping 192.168.56.1
+----
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-06.png[Снимок экрана 6]
+
+Если ping идет, также попробуйте с хост машины пингануть гостевую. В моем случае адрес Guest VM 192.168.56.101 и я использую:
+
+[source,shell]
+----
+ping 192.168.56.101
+----
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-07.png[Снимок экрана 7]
+
+Если ping идет в обе стороны - все отлично. Теперь нужно установить агент cuckoo sandbox. Если пинг не идет - проверьте /etc/inetsim/inetsim.conf, правильно ли вы указали параметры, а также проверьте работу InetSim (sudo systemctl status inetsim). Если все настроено правильно - ошибок быть не должно.
+
+Начиная с версии 0.4, Cuckoo использует собственный агент, работающий внутри гостевой системы и обрабатывающий связь и обмен данными с хостом. Этот агент разработан как кроссплатформенный, поэтому вы сможете использовать его на Windows, Android, Linux и Mac OS X. Для корректной работы Cuckoo необходимо установить и запустить этот агент. Это довольно просто. В каталоге $CWD/agent/ вы найдете файл agent.py. Скопируйте этот файл в гостевую операционную систему (во временную общую папку) и запустите его. Агент запустит небольшой API-сервер, с которым сможет взаимодействовать хост.
+
+Переместите файл agent.py на рабочий стол Windows 7 и измените название файла на agent.pyw. (Если вы не видите расширения файлов, используйте эти шаги: - Откройте This Computer (Мой компьютер) -> В верхнем меню нажмите Organize (Упорядочить) -> Выберите Folder and search options (Параметры папок и поиска) -> View (Вид) -> Hide extensions for know file types уберите галочку)
+
+Запустите окно терминала от имени администратора. Используйте cd .. что перейти до директории C:\ . Затем используйте:
+
+[source,shell]
+----
+cd Python27
+----
+
+чтобы перейти в директорию, где расположен python.exe.
+
+После перехода в эту директорию, используйте команду:
+
+[source,shell]
+----
+python.exe C:\Users\cuckoo\Desktop\agent.pyw
+----
+
+для запуска агента. Окно должно быть включено, так как теперь запущен фоновый процесс.
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-08.png[Снимок экрана 8]
+
+Сохранение состояния виртуальной машины. Теперь вы готовы сохранить виртуальную машину в состояние снапшота. Перед этим убедитесь, что вы выполнили перезагрузку и что она запущена, агент Cuckoo запущен, и Windows полностью загружена. Теперь вы можете приступить к сохранению машины. Способ сохранения, очевидно, зависит от используемого вами программного обеспечения для виртуализации.Если вы правильно выполните все описанные ниже шаги, ваша виртуальная машина будет готова к использованию Cuckoo.
+
+Если вы используете VirtualBox, вы можете сделать снимок через графический пользовательский интерфейс или из командной строки хост-машины:
+
+[source,shell]
+----
+VBoxManage snapshot "cuckoo1" take "Snapshot1" –pause
+----
+
+cuckoo1 - название VM, Snapshot1 - название снапшота (оно нужно для конфигурации virtualbox.conf). После завершения создания снапшота вы можете выключить машину и восстановить ее:
+
+[source,shell]
+----
+VBoxManage controlvm "cuckoo1" poweroff
+
+VBoxManage snapshot "cuckoo1" restorecurrent
+----
+
+Все эти команды выполняются в терминале хост-машины.
+
+Использование Cuckoo Sandbox. Перейдите в cuckoovenv окружение при помощи команды в терминале хост-машины:
+
+[source,shell]
+----
+. cuckoovenv/bin/activate
+----
+
+Выполните команду для загрузки сигнатур cuckoo community:
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-09.png[Снимок экрана 9]
+
+[source,shell]
+----
+cuckoo community
+----
+
+Теперь перейдем к запуску Cuckoo sandbox. В данной документации рассматривается установка и запуск Cuckoo Sandbox на 1 машине без API сервера. Запуск cuckoo rooter. Cuckoo Rooter — это новая концепция, предоставляющая корневой доступ для выполнения различных команд в Cuckoo (которая, как правило, работает без прав root). В настоящее время эта команда доступна только для систем Ubuntu и Debian-подобных систем. В частности, корневой модуль помогает Cuckoo выполнять сетевые команды для обеспечения маршрутизации для каждого анализа. Для получения дополнительной информации об этом см. документ «[Маршрутизация сети для каждого анализа](https://cuckoo.readthedocs.io/en/latest/installation/host/routing/#routing)». Cuckoo и корневой модуль взаимодействуют через сокет UNIX, для которого корневой модуль обеспечивает доступ Cuckoo.
+
+Откройте отдельное окно терминала. Выполните команду для запуска rooter:
+
+[source,shell]
+----
+sudo ~/cuckoovenv/bin/cuckoo rooter -g nikolaik
+----
+
+-g указывает группу, под которой запускать rooter. В вашем случае эта группа – имя юзера, под которым вы производили установку. Это имя вы можете узнать при помощи команды whoami в терминале. Это окно терминала будет открыто, пока работает rooter. Если его закрыть - cuckoo остановится. В этом окне вы можете видеть лог команд, которые cuckoo sandbox выполняет с правами root.
+
+Запуск Cuckoo Sandbox. Откройте отдельное окно в терминале. Выполните команду:
+
+[source,shell]
+----
+. cuckoovenv/bin/activate
+
+(cuckoovenv) nikolaik@nikolaik-virtual-machine:~$ cuckoo -d
+----
+
+Вы увидите большой debug log, в котором множество информации о том, какие сигнатуры были загружены и состояние Cuckoo Sandbox. Если в последней строке вы видите:
+
+[source,shell]
+----
+INFO: Waiting for analysis tasks.
+----
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-10.png[Снимок экрана 10]
+
+То Cuckoo Sandbox успешно установлена и готова к анализу. Теперь нужно запустить web оболочку песочницы. Для этого в отдельном окне терминала используйте команды:
+
+[source,shell]
+----
+. cuckoovenv/bin/activate
+
+(cuckoovenv) nikolaik@nikolaik-virtual-machine:~$ cuckoo web --host 0.0.0.0 --port 8080
+----
+
+Чтобы открыть веб-интерфейс, откройте Firefox на хост-машине и в URL строке введите http://localhost:8080.
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-11.png[Снимок экрана 11]
+
+Usage statistics у вас везде будут 0, т.к. вы еще не производили ни одного анализа. Ознакомьтесь с веб-интерфейсом Cuckoo Sandbox.
+
+Загрузите eicar для первого анализа по ссылке: https://virusanalyst.com/eicar.zip. В окне веб-интерфейса Cuckoo Sandbox нажмите на большую кнопку SUBMIT A FILE FOR ANALYSIS. Выберите eicar.zip и нажмите Open.
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-12.png[Снимок экрана 12]
+
+Network Routing у вас должен быть установлен INETSIM по умолчанию (выделен синим цветом). Если нет – выберите его вручную. Если не можете его выбрать – значит есть проблема с InetSim. Проверьте, все ли вы настроили правильно и попробуйте снова.
+
+Выберите eicar.zip и нажмите по пустому квадрату рядом с ним для выделения.
+
+Чтобы использовать Firefox для анализа (а он нам нужен, т.к. мы не настраивали Internet Explorer в этой лабораторной работе), нажмите слева на Package default и в выпадающем списке выберите ff (так называется пакет firefox в Cuckoo Sandbox).
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-13.png[Снимок экрана 13]
+
+В настройках слева ниже выключите Process Memory Dump, т.к. мы не устанавливали и не настраивали Volatility.
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-14.png[Снимок экрана 14]
+
+Запустите анализ, нажав на синюю кнопку Analyze справа сверху. Если вы увидели красную ошибку Something went wrong после нажатия на кнопку, откройте окно терминала с cuckoo. Если там начался анализ – все нормально, это ошибка веб-интерфейса.
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-15.png[Снимок экрана 15]
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-16.png[Снимок экрана 16]
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-17.png[Снимок экрана 17]
+
+Ваш лог анализа может отличаться, не пугайтесь. В моей конфигурации был включен модуль tesseract, но он работает некорректно, из-за этого и есть красная ошибка в логе.
+
+После завершения анализа, перейдите на главную страницу Cuckoo Sandbox в веб-интерфейсе. Пролистайте вниз, там вы увидите историю анализов. Откройте отчет eicar.zip.
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-18.png[Снимок экрана 18]
+
+Ознакомьтесь с отчетом. Если вы установили Python Pillow на гостевую машину, вы также увидите скриншоты, прикрепленные к отчету. Слева вы можете увидеть выдвигающееся меню, оно тоже относится к этому анализу. Просмотрите вкладки в меню слева.
+
+image::utm/cuckoo-sandbox/cuckoo-screenshot-19.png[Снимок экрана 19]
+
+Следующая страница: xref:utm/cuckoo-sandbox/perfomance.adoc[Анализ производительности и варианты оптимизации Cuckoo Sandbox].

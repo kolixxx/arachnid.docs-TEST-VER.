@@ -1,3 +1,0 @@
-= System setup
-
-The the process of installation is explained here

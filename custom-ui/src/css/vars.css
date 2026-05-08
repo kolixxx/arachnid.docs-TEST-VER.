@@ -151,4 +151,7 @@
   --code-font-color: #0138e9;
   --code-background: #fff;
   --code-border-color: #e2e8f0;
+  /* Листинги / literal — как «белая карточка» на сером фоне страницы (как в strongSwan) */
+  --pre-background: #fff;
+  --pre-border-color: var(--code-border-color);
 }

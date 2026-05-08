@@ -1,3 +1,81 @@
 = Справочник Cuckoo Sandbox
 
-Пустая страница.
+== Основные файлы конфигурации (`conf/` внутри рабочего каталога Cuckoo)
+
+[%header,cols="1,2"]
+|===
+| Файл | Назначение
+| `cuckoo.conf` | Общее поведение, machinery, сервер результатов, БД
+| `auxiliary.conf` | Вспомогательные модули
+| `virtualbox.conf` | Параметры ВМ VirtualBox
+| `memory.conf` | Volatility и дампы памяти
+| `processing.conf` | Модули обработки
+| `reporting.conf` | Форматы отчётов, MongoDB
+| `routing.conf` | Маршрутизация (InetSim и др.)
+|===
+
+== Команды установки InetSim на хосте
+
+[source,shell]
+----
+sudo su
+echo "deb http://www.inetsim.org/debian/ binary/" > /etc/apt/sources.list.d/inetsim.list
+echo "deb-src http://www.inetsim.org/debian/ source/" >> /etc/apt/sources.list.d/inetsim.list
+wget -O - https://www.inetsim.org/inetsim-archive-signing-key.asc | apt-key add -
+apt update && apt install inetsim
+----
+
+== VirtualBox — снимок и восстановление
+
+[source,shell]
+----
+VBoxManage snapshot "cuckoo1" take "Snapshot1" --pause
+VBoxManage controlvm "cuckoo1" poweroff
+VBoxManage snapshot "cuckoo1" restorecurrent
+----
+
+Подставьте имена вашей ВМ и снапшота.
+
+== Цепочка запуска (памятка)
+
+. Активируйте виртуальное окружение:
++
+[source,shell]
+----
+source ~/cuckoovenv/bin/activate
+----
+. Загрузите сигнатуры сообщества:
++
+[source,shell]
+----
+cuckoo community
+----
+. В отдельном терминале запустите rooter (подставьте свою группу, см. `whoami` на хосте):
++
+[source,shell]
+----
+sudo ~/cuckoovenv/bin/cuckoo rooter -g имя_группы
+----
+. В третьем терминале снова активируйте окружение и запустите Cuckoo:
++
+[source,shell]
+----
+source ~/cuckoovenv/bin/activate
+cuckoo -d
+----
+. Четвёртое окно — веб-интерфейс:
++
+[source,shell]
+----
+source ~/cuckoovenv/bin/activate
+cuckoo web --host 0.0.0.0 --port 8080
+----
+
+== Внешние ссылки из руководства
+
+* https://github.com/kbandla/pydeep
+* https://cuckoo.readthedocs.io/en/latest/installation/host/routing/#routing
+* https://virusanalyst.com/eicar.zip
+
+Следующая страница: xref:utm/cuckoo-sandbox/troubleshooting.adoc[Поиск и устранение неисправностей Cuckoo Sandbox].
+

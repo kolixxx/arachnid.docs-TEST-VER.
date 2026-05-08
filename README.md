@@ -21,9 +21,7 @@ arachnid.docs/
             ├── nav.adoc
             ├── images/
             └── pages/
-                ├── index.adoc
-                ├── setup.adoc
-                ├── usage.adoc
+                ├── start-page.adoc
                 └── ...
 ```
 
@@ -37,7 +35,7 @@ arachnid.docs/
 site:
   title: Arachnid Docs
   url: http://localhost
-  start_page: arachnid::index.adoc
+  start_page: arachnid::start-page.adoc
 
 content:
   sources:
@@ -76,8 +74,10 @@ content/modules/ROOT/pages/
 ```
 
 Каждая страница — отдельный `.adoc` файл.
-P.S. Файлы index.adoc, setup.adoc, usage.adoc в content/modules/ROOT/pages/ это страницы, которые были в самой первой версии проекта. В случае необходимости использовать этот репозиторий для прода, рекомендуется удалить эти страницы.
-В content/modules/ROOT/pages/ лежат файлы самого верхнего уровня иерархии, внутри них уже будут находиться продукты. Например, Arachnid.NGFW (файл ngfw.adoc подключается в content/modules/ROOT/nav.adoc с указанием названия, которое будет отображаться на сайте при помощи "* xref:ngfw.adoc[Arachnid.NGFW]"
+
+Стартовая страница сайта — `start-page.adoc`; она задаётся в `antora-playbook.yml` как `start_page: arachnid::start-page.adoc`.
+
+В `content/modules/ROOT/pages/` лежат файлы самого верхнего уровня иерархии, внутри них уже будут находиться продукты. Например, Arachnid.NGFW (файл ngfw.adoc подключается в content/modules/ROOT/nav.adoc с указанием названия, которое будет отображаться на сайте при помощи "* xref:ngfw.adoc[Arachnid.NGFW]"
 1 символ * обозначает первый уровень иерархии. А чтобы внутри Arachnid.NGFW была вкладка, например, Packet Filter(PF) используется уже "** xref:ngfw/pf/overview.adoc[Packet Filter (PF)]" с указанием пути до файла overview.adoc. Папка ngfw/ лежит рядом с файлом nav.adoc, поэтому целый путь до этого каталога указывать не нужно.
 Пример страницы:
 
@@ -114,9 +114,7 @@ content/modules/ROOT/nav.adoc
 Пример:
 
 ```adoc
-* xref:index.adoc[Index]
-* xref:setup.adoc[Setup]
-* xref:usage.adoc[Usage]
+* xref:start-page.adoc[Главная]
 * xref:ngfw.adoc[Arachnid.NGFW]
 * xref:utm.adoc[Arachnid.UTM]
 * xref:ad.adoc[Arachnid.AD]
