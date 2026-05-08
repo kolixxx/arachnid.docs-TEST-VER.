@@ -1,0 +1,9 @@
+= Плагин OPNsense «Suricata2Cuckoo»
+
+Исходный код и скрипты поставки входят в продуктовый репозиторий https://gitlab.arachnd.ru/solutions/arachnid.utm/-/tree/main/Suricata2cuckooOPNsensePlugin[Suricata2cuckooOPNsensePlugin] (ветка `main` решения Arachnid.UTM).
+
+Плагин для https://opnsense.org/[OPNsense] связывает штатный Suricata IDS с xref:utm/cuckoo-sandbox/overview.adoc[Cuckoo Sandbox]: извлечённые с трафика файлы попадают в каталог *filestore* Suricata, демон `suricata2cuckoo` (`suricata2cuckoo.pl`) отслеживает новые объекты и отправляет их в Cuckoo по REST API. Плагин не устанавливает сам Suricata и не настраивает песочницу — он дополняет контур: «IDS на шлюзе → извлечённые файлы → очередь анализа».
+
+В этой документации Arachnid.UTM — сжатое описание архитектуры, установки на файрволе, справочник путей и типовые проблемы. Подробности поведения Cuckoo см. в разделе Cuckoo Sandbox.
+
+Следующая страница: xref:utm/suricata2cuckoo/architecture.adoc[Архитектура плагина Suricata2Cuckoo].

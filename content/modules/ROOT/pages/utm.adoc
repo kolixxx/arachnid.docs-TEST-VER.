@@ -1,3 +1,3 @@
 = Arachnid.UTM
 
-Раздел в подготовке.
+В разделе описаны сценарии UTM, в том числе xref:utm/cuckoo-sandbox/overview.adoc[Cuckoo Sandbox] и xref:utm/suricata2cuckoo/overview.adoc[плагин Suricata2Cuckoo для OPNsense] (связка IDS на шлюзе с очередью анализа Cuckoo).

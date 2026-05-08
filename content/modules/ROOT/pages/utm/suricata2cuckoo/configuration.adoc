@@ -1,0 +1,56 @@
+= Конфигурация и сценарии настройки Suricata2Cuckoo
+
+Инструкция рассчитана на установку с https://gitlab.arachnd.ru/solutions/arachnid.utm/-/tree/main/Suricata2cuckooOPNsensePlugin[каталога плагина] в составе решения Arachnid.UTM. Команды выполняются под *root* на OPNsense.
+
+== Зависимости Perl для демона
+
+На минимальной установке модулей Perl часто не хватает — без них `suricata2cuckoo` не стартует.
+
+[source,shell]
+----
+pkg update
+pkg install -y git p5-libwww p5-HTTP-Message p5-XML-XPath p5-File-LibMagic
+----
+
+Если URL API Cuckoo начинается с `https://`, установите поддержку HTTPS для LWP:
+
+[source,shell]
+----
+pkg install -y p5-LWP-Protocol-https
+----
+
+== Установка файлов плагина
+
+Скрипт клонирует репозиторий (по умолчанию — корень решения с плагином), копирует файлы плагина в дерево OPNsense, перезапускает `configd` и подготавливает конфигурацию из шаблона. Для своего зеркала задайте переменную `REPO_URL` перед запуском (см. комментарии в `dev-install.sh` в репозитории).
+
+[source,shell]
+----
+fetch https://gitlab.arachnd.ru/solutions/arachnid.utm/-/raw/main/Suricata2cuckooOPNsensePlugin/dev-install.sh -o /root/dev-install.sh
+sh /root/dev-install.sh
+----
+
+В конце скрипт выводит строку вида `Using plugin git commit: …` — по ней проверяют, какая ревизия задеплоена на узле.
+
+Проверка наличия конфига демона:
+
+[source,shell]
+----
+ls -la /usr/local/etc/suricata2cuckoo/suricata2cuckoo.conf
+----
+
+== Включение IDS и логирования
+
+Плагин *не* включает Suricata самостоятельно.
+
+. *Services → Intrusion Detection → Settings* — включите IDS, выберите интерфейсы, *Apply*.
+. *Services → Intrusion Detection → Administration* — в разделе *Logging* включите *Enable eve syslog output* и *Enable eve HTTP logging*, затем *Apply* на странице IDS (эти два пункта плагин автоматически не переключает).
+
+== Параметры Suricata2Cuckoo в GUI
+
+. Откройте *Services → Suricata2Cuckoo*.
+. Включите плагин, задайте протоколы и расширения файлов для извлечения, URL и токен REST API Cuckoo, параметры ВМ/профиля — по полям формы.
+. Нажмите *Apply*.
+
+Если после изменений в *Intrusion Detection* снова нажимаете *Apply* там, один раз нажмите *Apply* и в *Suricata2Cuckoo*, чтобы правила извлечения и *file-store* остались согласованы с IDS.
+
+Следующая страница: xref:utm/suricata2cuckoo/perfomance.adoc[Анализ производительности и варианты оптимизации Suricata2Cuckoo].

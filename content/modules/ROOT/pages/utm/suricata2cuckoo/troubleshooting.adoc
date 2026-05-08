@@ -1,0 +1,34 @@
+= Поиск и устранение неисправностей Suricata2Cuckoo
+
+== Журналы: не путать IDS и демон
+
+Основная проверка отправки в Cuckoo:
+
+[source,shell]
+----
+tail -f /var/log/suricata2cuckoo-events.log
+----
+
+Там видны старт демона, режим наблюдения, строки `Submitting …`, `Cuckoo API OK` или ошибки API. *Интерфейсы и IP-адреса демон в этом журнале не дублирует* — их смотрите в событиях Suricata (например, *fileinfo* в `eve.json`).
+
+Страница *Services → Intrusion Detection → Log File* показывает лог *Suricata*. Строки про Cuckoo API пишет не движок IDS, а `suricata2cuckoo.pl`; искать их нужно в `suricata2cuckoo-events.log`. Раздел *System → Log Files → General* может быть пустым для демона из‑за маршрутизации syslog — это не всегда признак сбоя.
+
+== Консоль root (tcsh)
+
+В оболочке по умолчанию конструкции с перенаправлением и конвейером (например, `2>/dev/null` перед `|`) иногда дают *Ambiguous output redirect*. Для сложных конвейеров используйте `sh` или обёртку `/bin/sh -c '…'`.
+
+На новых выпусках OPNsense файла `/var/log/system.log` может не быть — системные сообщения лежат в других путях (например, под `/var/log/system/`).
+
+== Отчёт diagnose.sh
+
+Скрипт `diagnose.sh` *ничего не меняет* в конфигурации: выводит сводку (строка `rc.d`, проверки Perl-модулей, пути, статус сервиса, хвосты логов, проба `configctl suricata2cuckoo apply` и т.д.).
+
+[source,shell]
+----
+chmod 0755 /usr/local/opnsense/scripts/OPNsense/Suricata2Cuckoo/diagnose.sh
+sh /usr/local/opnsense/scripts/OPNsense/Suricata2Cuckoo/diagnose.sh
+----
+
+При обращении за поддержкой приложите *полный* вывод от начала до маркера конца сценария.
+
+См. также xref:utm/suricata2cuckoo/overview.adoc[обзор плагина] и xref:utm/suricata2cuckoo/configuration.adoc[конфигурацию].

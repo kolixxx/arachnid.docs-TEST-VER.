@@ -1,0 +1,24 @@
+= Справочник Suricata2Cuckoo
+
+== Пути на файрволе
+
+[%header,cols="1,2"]
+|===
+| Назначение | Путь
+| Правила извлечения файлов | `/usr/local/etc/suricata/rules/file-extract.rules`
+| Каталог filestore Suricata | `/var/log/suricata/filestore/`
+| Конфигурация демона | `/usr/local/etc/suricata2cuckoo/suricata2cuckoo.conf`
+| Журнал событий демона | `/var/log/suricata2cuckoo-events.log`
+| Диагностический скрипт | `/usr/local/opnsense/scripts/OPNsense/Suricata2Cuckoo/diagnose.sh`
+|===
+
+== Диапазон SID
+
+Плагин резервирует локальные SID в диапазоне *1000001–1000999* для генерируемых правил.
+
+== Ссылки
+
+* https://gitlab.arachnd.ru/solutions/arachnid.utm/-/tree/main/Suricata2cuckooOPNsensePlugin[Исходный код плагина в GitLab]
+* xref:utm/cuckoo-sandbox/reference.adoc[Справочник Cuckoo Sandbox] — конфигурация узла анализа
+
+Следующая страница: xref:utm/suricata2cuckoo/troubleshooting.adoc[Поиск и устранение неисправностей Suricata2Cuckoo].
