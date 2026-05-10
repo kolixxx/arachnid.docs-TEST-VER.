@@ -1,5 +1,5 @@
-= Справочник Arachnid.TM
+= Справочник Threat Modeling
 
 Раздел в подготовке. Здесь будут таблицы параметров, путей, интерфейсов и форматов.
 
-Следующая страница: xref:tm/troubleshooting.adoc[Поиск и устранение неисправностей Arachnid.TM].
+Следующая страница: xref:tm/troubleshooting.adoc[Поиск и устранение неисправностей Threat Modeling].
