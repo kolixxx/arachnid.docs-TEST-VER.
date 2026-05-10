@@ -1,0 +1,78 @@
+= Справочник CuckooMX
+
+Краткий справочник по файлам, параметрам Postfix и отличиям конфигурации от upstream https://github.com/xme/cuckoomx[xme/cuckoomx].
+
+== Пути и файлы по умолчанию (пример развёртывания)
+
+[cols="1,2",options="header"]
+|===
+|Компонент |Типичный путь
+
+|Скрипт фильтра
+|`/data/cuckoo/cuckoomx.pl`
+
+|Конфигурация XML
+|`/data/cuckoo/conf/cuckoomx.conf`
+
+|Конфигурация Postfix (сервисы)
+|`/etc/postfix/master.cf`
+
+|Основные параметры Postfix
+|`/etc/postfix/main.cf`
+
+|Журнал почты (Debian/Ubuntu)
+|`/var/log/mail.log`
+
+|Sendmail совместимый бинарь Postfix
+|`/usr/sbin/sendmail` (значение в XML может переопределяться)
+|===
+
+== Postfix: фрагмент `master.cf`
+
+Строка приёма SMTP с фильтром (одна строка с `smtpd` и опцией через пробел):
+
+[source]
+----
+smtp      inet  n       -       y       -       -       smtpd
+  -o content_filter=cuckoomx
+----
+
+Сервис `pipe` (имя `cuckoomx` должно совпадать с `content_filter`; пользователь и путь — ваши):
+
+[source]
+----
+cuckoomx  unix  -       n       n       -       -       pipe
+  flags=Rq user=cuckoomx null_sender=
+  argv=/data/cuckoo/cuckoomx.pl -f ${sender} ${recipient}
+----
+
+Точное форматирование колонок должно соответствовать стилю вашего `master.cf`; проще всего скопировать соседний `pipe`-сервис и заменить имя и `argv`.
+
+== Коды выхода скрипта (upstream)
+
+В `cuckoomx.pl` используются константы Postfix для `pipe`:
+
+* `75` (`EX_TEMPFAIL`) — временная ошибка, Postfix отложит доставку.
+* `69` (`EX_UNAVAILABLE`) — постоянная ошибка, отказ.
+
+Смысл: при сбоях скрипт не должен «ронять» Postfix через `die()` без кода — важна согласованность с документацией Postfix.
+
+== Конфигурация XML: upstream vs Arachnid.UTM
+
+В оригинале ветка `/cuckoomx/cuckoo` содержит, в частности, `basedir`, `db` (путь к SQLite), `guest` — для прямой записи в БД Cuckoo.
+
+В модифицированной версии (каталог https://gitlab.arachnd.ru/solutions/arachnid.utm/-/tree/main/cuckooMX/cuckooMX%20modified[cuckooMX modified]) добавлены параметры для *REST API*:
+
+* `api-url` — базовый URL API;
+* `api-token` — секрет для авторизации запросов;
+
+элемент `guest` обычно сохраняется для выбора/привязки гостевой машины при создании задачи через API. Путь к `db` и прямой доступ к SQLite с узла Postfix для постановки задач *не используется* в API-режиме.
+
+Полный перечень узлов XML смотрите в файле-примере `cuckoomx.conf` в репозитории.
+
+== Связанные разделы
+
+* xref:utm/cuckoo-sandbox/reference.adoc[Справочник Cuckoo Sandbox] — API, токены, порты.
+* xref:utm/cuckoomx/configuration.adoc[Конфигурация CuckooMX] — пошаговая установка.
+
+Следующая страница: xref:utm/cuckoomx/troubleshooting.adoc[Поиск и устранение неисправностей CuckooMX].

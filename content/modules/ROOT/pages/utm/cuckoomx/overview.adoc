@@ -1,0 +1,15 @@
+= CuckooMX (Postfix и Cuckoo Sandbox)
+
+CuckooMX — это *контент-фильтр* для https://www.postfix.org/[Postfix]: входящее SMTP-сообщение обрабатывается внешним скриптом, из письма извлекаются вложения (и при необходимости другие объекты), после чего почта снова передаётся в очередь Postfix для доставки. Параллельно подозрительные файлы отправляются в xref:utm/cuckoo-sandbox/overview.adoc[Cuckoo Sandbox] на анализ.
+
+== Происхождение идеи и upstream
+
+Первоначальная реализация — проект *CuckooMX* автора Xavier Mertens (Perl, интеграция с Postfix и Cuckoo), опубликованный на GitHub: https://github.com/xme/cuckoomx[xme/cuckoomx]. Там же описана классическая схема: `content_filter` в `master.cf`, отдельный сервис `pipe` и скрипт `cuckoomx.pl`.
+
+В решении Arachnid.UTM используется *модифицированная* версия скрипта и конфигурации из каталога https://gitlab.arachnd.ru/solutions/arachnid.utm/-/tree/main/cuckooMX/cuckooMX%20modified[cuckooMX modified] (репозиторий решения). Главное отличие от upstream — отправка задач в Cuckoo через *REST API* и параметры `api-url` / `api-token` в `cuckoomx.conf`, вместо прямой записи в SQLite-базу Cuckoo и обязательного доступа к файлам песочницы с узла Postfix. Подробнее см. xref:utm/cuckoomx/architecture.adoc[архитектура] и xref:utm/cuckoomx/reference.adoc[справочник].
+
+== Где применяется
+
+Типичный сценарий — выделенный узел (или ВМ) с Postfix в DMZ: с интернета на TCP/25 приходит почта, шлюз (например, OPNsense) пробрасывает порт на этот хост, Postfix принимает письмо, CuckooMX извлекает вложения и ставит их в очередь Cuckoo, после чего письмо уходит получателю (или обрабатывается по вашим правилам). Документация ниже описывает установку «с нуля» в духе внутренней инструкции по Postfix + CuckooMX и общие рекомендации по эксплуатации.
+
+Следующая страница: xref:utm/cuckoomx/architecture.adoc[Детальная архитектура CuckooMX].
