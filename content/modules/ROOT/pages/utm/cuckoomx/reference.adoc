@@ -31,7 +31,7 @@
 
 Строка приёма SMTP с фильтром (одна строка с `smtpd` и опцией через пробел):
 
-[source]
+[source,subs=verbatim]
 ----
 smtp      inet  n       -       y       -       -       smtpd
   -o content_filter=cuckoomx
@@ -39,7 +39,7 @@ smtp      inet  n       -       y       -       -       smtpd
 
 Сервис `pipe` (имя `cuckoomx` должно совпадать с `content_filter`; пользователь и путь — ваши):
 
-[source]
+[source,subs=verbatim]
 ----
 cuckoomx  unix  -       n       n       -       -       pipe
   flags=Rq user=cuckoomx null_sender=

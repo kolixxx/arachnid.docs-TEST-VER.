@@ -239,7 +239,7 @@ image::utm/cuckoomx/image35.png[master.cf: сервис smtp]
 .Сервис smtp с content_filter
 image::utm/cuckoomx/image36.png[master.cf: добавлен content_filter]
 
-В конец `master.cf` добавьте сервис типа `pipe` с именем `cuckoomx`, совпадающим с `content_filter`. Укажите непривилегированного пользователя (например `cuckoomx`, `cuckoo` или отдельную учётную запись) и путь к `cuckoomx.pl` в `argv`. Не используйте пользователя `root`. Макросы `-f ${sender} ${recipient}` оставьте без изменений.
+В конец `master.cf` добавьте сервис типа `pipe` с именем `cuckoomx`, совпадающим с `content_filter`. Укажите непривилегированного пользователя (например `cuckoomx`, `cuckoo` или отдельную учётную запись) и путь к `cuckoomx.pl` в `argv`. Не используйте пользователя `root`. Макросы Postfix в конце строки `argv` — +++-f ${sender} ${recipient}+++ — оставьте без изменений (подстановку выполняет Postfix, не оболочка).
 
 Пользователь не обязан совпадать с учётной записью процесса Cuckoo на другом узле: постановка задач выполняется по API.
 
