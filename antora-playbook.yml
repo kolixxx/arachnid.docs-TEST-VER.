@@ -1,6 +1,6 @@
 site:
   title: Arachnid Docs
-  url: http://localhost
+  url: https://docs.arachnd.ru
   start_page: arachnid::start-page.adoc
 content:
   sources:
