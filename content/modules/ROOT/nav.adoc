@@ -33,7 +33,6 @@
 *** xref:utm/cuckoomx/troubleshooting.adoc[Поиск и устранение неисправностей CuckooMX]
 * xref:ad.adoc[Arachnid.AD]
 * xref:tm.adoc[Arachnid.TM]
-** xref:tm/overview.adoc[Threat Modeling]
 ** xref:tm/architecture.adoc[Детальная архитектура Threat Modeling]
 ** xref:tm/configuration.adoc[Конфигурация и сценарии настройки Threat Modeling]
 ** xref:tm/perfomance.adoc[Анализ производительности и варианты оптимизации Threat Modeling]

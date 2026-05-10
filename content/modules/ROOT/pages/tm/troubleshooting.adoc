@@ -2,4 +2,4 @@
 
 Раздел в подготовке. Здесь будут типовые ошибки, диагностика и ссылки на журналы.
 
-Вернуться: xref:tm/overview.adoc[Threat Modeling].
+Вернуться: xref:tm.adoc[Arachnid.TM].
