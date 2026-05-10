@@ -6,7 +6,7 @@ CuckooMX — это *контент-фильтр* для https://www.postfix.org
 
 Первоначальная реализация — проект *CuckooMX* автора Xavier Mertens (Perl, интеграция с Postfix и Cuckoo), опубликованный на GitHub: https://github.com/xme/cuckoomx[xme/cuckoomx]. Там же описана классическая схема: `content_filter` в `master.cf`, отдельный сервис `pipe` и скрипт `cuckoomx.pl`.
 
-В решении Arachnid.UTM используется *модифицированная* версия скрипта и конфигурации из каталога https://gitlab.arachnd.ru/solutions/arachnid.utm/-/tree/main/cuckooMX/cuckooMX%20modified[cuckooMX modified] (репозиторий решения). Главное отличие от upstream — отправка задач в Cuckoo через *REST API* и параметры `api-url` / `api-token` в `cuckoomx.conf`, вместо прямой записи в SQLite-базу Cuckoo и обязательного доступа к файлам песочницы с узла Postfix. Подробнее см. xref:utm/cuckoomx/architecture.adoc[архитектура] и xref:utm/cuckoomx/reference.adoc[справочник].
+В решении Arachnid.UTM используется *модифицированная* версия скрипта и конфигурации из каталога https://gitlab.arachnd.ru/solutions/arachnid.utm/-/tree/main/cuckooMX/cuckooMX%20modified[cuckooMX modified] (репозиторий решения); рядом в поставке — обновлённый `README` с перечнем модулей Perl, эндпоинтами API и порядком запуска компонентов Cuckoo. Главное отличие от upstream — отправка задач методами `POST /tasks/create/file` и при необходимости `POST /tasks/create/url` на базовый URL из `api-url`, с опциональным заголовком `Authorization: Bearer` из `api-token`, вместо прямой записи в SQLite и доступа к `cuckoo.db` с узла Postfix. Подробнее см. xref:utm/cuckoomx/architecture.adoc[архитектура] и xref:utm/cuckoomx/reference.adoc[справочник].
 
 == Где применяется
 

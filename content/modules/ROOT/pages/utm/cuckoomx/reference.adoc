@@ -55,20 +55,75 @@ cuckoomx  unix  -       n       n       -       -       pipe
 * `75` (`EX_TEMPFAIL`) — временная ошибка, Postfix отложит доставку.
 * `69` (`EX_UNAVAILABLE`) — постоянная ошибка, отказ.
 
-Смысл: при сбоях скрипт не должен «ронять» Postfix через `die()` без кода — важна согласованность с документацией Postfix.
+Смысл: при сбоях скрипт не должен «ронять» Postfix через `die()` без кода — важна согласованность с документацией Postfix. Ошибки ответа REST API Cuckoo в модифицированной версии обрабатываются отдельно: они журналируются и не завершают процесс с этими кодами, чтобы письмо всё равно было доставлено.
 
-== Конфигурация XML: upstream vs Arachnid.UTM
+== REST API: пути и проверка
 
-В оригинале ветка `/cuckoomx/cuckoo` содержит, в частности, `basedir`, `db` (путь к SQLite), `guest` — для прямой записи в БД Cuckoo.
+Базовый URL задаётся в `cuckoomx.conf` в элементе `api-url` *без завершающего слэша* (как в примере из поставки).
 
-В модифицированной версии (каталог https://gitlab.arachnd.ru/solutions/arachnid.utm/-/tree/main/cuckooMX/cuckooMX%20modified[cuckooMX modified]) добавлены параметры для *REST API*:
+Скрипт обращается к следующим относительным путям:
 
-* `api-url` — базовый URL API;
-* `api-token` — секрет для авторизации запросов;
+[cols="1,2,3",options="header"]
+|===
+|Операция |HTTP |Путь
 
-элемент `guest` обычно сохраняется для выбора/привязки гостевой машины при создании задачи через API. Путь к `db` и прямой доступ к SQLite с узла Postfix для постановки задач *не используется* в API-режиме.
+|Постановка файла
+|`POST`
+|`/tasks/create/file`
 
-Полный перечень узлов XML смотрите в файле-примере `cuckoomx.conf` в репозитории.
+|Постановка URL (если включено `process-url`)
+|`POST`
+|`/tasks/create/url`
+|===
+
+Проверка доступности API с узла Postfix (подставьте свой `api-url`):
+
+[source,shell]
+----
+curl "http://127.0.0.1:8090/cuckoo/status"
+----
+
+Если в ответ приходит код 401, включена проверка токена; тогда:
+
+[source,shell]
+----
+curl -H "Authorization: Bearer ВАШ_ТОКЕН" "http://127.0.0.1:8090/cuckoo/status"
+----
+
+Токен задаётся в файле `conf/cuckoo.conf` на *узле Cuckoo Sandbox*: параметр `api_token` в секции `[cuckoo]`; то же значение копируют в `api-token` в `cuckoomx.conf` на Postfix (см. README в каталоге поставки CuckooMX).
+
+== Зависимости Perl
+
+В модифицированном скрипте используются модули (имена пакетов в Debian/Ubuntu могут отличаться):
+
+* `LWP::UserAgent`, `HTTP::Request::Common` — HTTP-клиент и POST;
+* `MIME::Parser`, `File::LibMagic`, `Archive::Extract`, `URI::Find`, `XML::XPath`, `Digest::MD5`, `File::Temp`, `Sys::Syslog`.
+
+Если `api-url` использует схему `https://`, установите для Perl поддержку HTTPS (например пакет `liblwp-protocol-https-perl` в Debian/Ubuntu).
+
+== Конфигурация XML (`cuckoomx.conf`)
+
+В upstream ветка `/cuckoomx/cuckoo` содержала `basedir`, `db`, `guest` для записи в SQLite.
+
+В модифицированной поставке ветка `/cuckoomx/cuckoo` содержит:
+
+* `api-url` — базовый URL API Cuckoo Sandbox;
+* `api-token` — токен для заголовка `Authorization: Bearer` (можно оставить пустым, если на стороне Cuckoo аутентификация отключена);
+* `guest` — имя машины (ВМ) в конфигурации Cuckoo, передаётся в поле `machine` при создании задачи.
+
+Узлы `/cuckoomx/core` (`outputdir`, `process-zip`, `process-rar`, `process-url`), `/cuckoomx/logging` и списки `/cuckoomx/ignore-mime`, `/cuckoomx/ignore-url` сохраняют назначение upstream; в примере конфигурации из поставки приведены комментарии и типовые значения.
+
+Полный пример см. в файле `cuckoomx.conf` рядом со скриптом в репозитории решения.
+
+== Порядок запуска компонентов Cuckoo Sandbox
+
+Чтобы API принимал задачи от CuckooMX, на стороне песочницы (см. README в поставке) обычно требуется:
+
+. при использовании ВМ — маршрутизатор Cuckoo (`cuckoo rooter`);
+. основной демон анализа (`cuckoo -d`);
+. процесс REST API (`cuckoo api --host … --port …`), а не только веб-интерфейс.
+
+Проверка прослушивания порта API: `ss -tlnp` или `netstat` на выбранном порту (часто 8090).
 
 == Связанные разделы
 

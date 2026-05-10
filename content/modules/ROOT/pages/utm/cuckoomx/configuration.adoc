@@ -255,14 +255,21 @@ sudo systemctl reload postfix
 
 === Проверка доступности API
 
-Перед приёмом боевой почты проверьте с узла Postfix доступ к API (пример с `curl`; при необходимости установите пакет `curl`):
+Перед приёмом боевой почты проверьте с узла Postfix доступ к API (при необходимости установите пакет `curl`). Базовый URL должен совпадать с `api-url` в `cuckoomx.conf` (без слэша в конце). Типовая проверка состояния Cuckoo 2.x:
 
 [source,shell]
 ----
-curl -H "Authorization: Bearer ВАШ_ТОКЕН" "http://АДРЕС_API:8090/..."
+curl "http://АДРЕС_API:8090/cuckoo/status"
 ----
 
-Точный путь и формат заголовка зависят от версии Cuckoo; сверяйтесь с xref:utm/cuckoo-sandbox/reference.adoc[справочником Cuckoo Sandbox] и документацией вашей установки.
+Если ответ имеет код 401, включена проверка токена; укажите тот же токен, что в `api-token`:
+
+[source,shell]
+----
+curl -H "Authorization: Bearer ВАШ_ТОКЕН" "http://АДРЕС_API:8090/cuckoo/status"
+----
+
+Подробнее о путях `/tasks/create/file` и заголовке Bearer см. xref:utm/cuckoomx/reference.adoc[справочник CuckooMX] и xref:utm/cuckoo-sandbox/reference.adoc[справочник Cuckoo Sandbox].
 
 .Пример запроса к API
 image::utm/cuckoomx/image38.png[Проверка API через curl]
