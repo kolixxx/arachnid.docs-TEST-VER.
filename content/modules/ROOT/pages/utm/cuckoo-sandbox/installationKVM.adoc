@@ -574,14 +574,14 @@ xref:utm/cuckoo-sandbox/troubleshooting.adoc#virt-manager-uefi[UEFI Not found �
 
 **→ Details → SATA Disk 1**
 
-[cols="1,2",options="header"]
+[cols="1,2,2",options="header"]
 |===
-| Параметр | Значение
-| Source path | `/var/lib/libvirt/images/win10.qcow2` (или путь из мастера)
-| Storage format | **qcow2**
+| Параметр | Значение | Примечание
+| Source path | `/var/lib/libvirt/images/win10.qcow2` (или путь из мастера) |
+| Storage format | **qcow2** |
 | Disk bus | **SATA** | Windows видит диск без virtio-драйверов на этапе установки
-| Readonly | выкл.
-| Shareable | выкл.
+| Readonly | выкл. |
+| Shareable | выкл. |
 |===
 
 VirtIO-диск (**virtio-scsi**) не обязателен; если позже переключите шину — понадобится `virtio-win.iso` внутри guest.
@@ -590,9 +590,9 @@ VirtIO-диск (**virtio-scsi**) не обязателен; если позже
 
 **→ Details → NIC** (Network interface)
 
-[cols="1,2",options="header"]
+[cols="1,2,2",options="header"]
 |===
-| Параметр | Значение
+| Параметр | Значение | Примечание
 | Network source | **Virtual network `default`: NAT** | это **`virbr0`**, **`192.168.122.0/24`**
 | Device model | **e1000** | Intel NIC; Windows ставится без доп. драйверов
 | MAC address | автоматически (например `52:54:00:…`) | в **`kvm.conf` не указывают**
@@ -758,6 +758,7 @@ image::utm/cuckoo-sandbox/kvm/W10-08f-edge-no-personalize.png[No personalize]
 | Preferred DNS | `192.168.122.1` (или `8.8.8.8` при InetSim позже)
 |===
 
+[start=6]
 6. **OK** → в **cmd**: `ipconfig` и `ping 192.168.122.1`.
 
 **Проверка:** `ping 192.168.122.1` с **0% loss** — IP и шлюз настроены верно. Ping **с host на guest** — только после этапа 6 (<<win10-firewall>>, после перезагрузки).
@@ -788,6 +789,7 @@ image::utm/cuckoo-sandbox/kvm/W10-18-ipconfig-ping.png[ipconfig]
 1. **Win+R** → ввести `gpedit.msc` → **OK** (или ПКМ по **Пуск** → **Run**).
 2. В дереве слева раскрывать папки по пути (на английской Windows — те же имена):
 
++
 **Отключить Microsoft Defender Antivirus**
 
 * Путь в дереве слева:
@@ -799,6 +801,7 @@ image::utm/cuckoo-sandbox/kvm/W10-18-ipconfig-ping.png[ipconfig]
 
   *Значение **Enabled** здесь означает «политика включена = Defender выключен».*
 
++
 **Отключить автоматические обновления**
 
 * В том же окне `gpedit.msc`, дерево слева:
@@ -808,6 +811,7 @@ image::utm/cuckoo-sandbox/kvm/W10-18-ipconfig-ping.png[ipconfig]
 * Справа — **Configure Automatic Updates** (**Настройка автоматического обновления**).
 * Двойной щелчок → **Disabled** (Отключено) → **Apply** → **OK**.
 
+[start=3]
 3. **Перезагрузить** guest (**Пуск → Power → Restart**).
 
 Полное отключение Defender (реестр + Safe Mode) — обязательно **перед снапшотом** (<<win10-defender-off>>). UI и gpedit выше — недостаточно для малвари (Error 225).
@@ -1006,6 +1010,7 @@ DWORD (32-bit):
 
 По желанию: `...\Services\wscsvc` → **Start** = **4**; `...\Services\Sense` → **Start** = **4** (если есть).
 
+[start=4]
 4. **Win+R** → `msconfig` → **Boot** → снять **Safe boot** → **Restart** (иначе снова Safe Mode).
 
 ==== D. Проверка (обычный режим)
@@ -1136,6 +1141,7 @@ image::utm/cuckoo-sandbox/kvm/A8-4-routing-conf-inetsim.png[routing.conf]
 
 1. Войти под **`cuckoo`** (если prompt показывает `ваш_пользователь@…`):
 
++
 [source,shell]
 ----
 sudo su - cuckoo
@@ -1143,15 +1149,18 @@ sudo su - cuckoo
 
 2. Активировать venv (**`~`** здесь = `/home/cuckoo`):
 
++
 [source,shell]
 ----
 source ~/venv/bin/activate
 ----
 
++
 Ожидаемый prompt: **`(venv) cuckoo@hostname:~$`**.
 
 3. Проверка (опционально):
 
++
 [source,shell]
 ----
 which cuckoo
