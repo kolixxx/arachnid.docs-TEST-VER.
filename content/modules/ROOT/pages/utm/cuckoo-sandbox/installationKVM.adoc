@@ -758,8 +758,8 @@ image::utm/cuckoo-sandbox/kvm/W10-08f-edge-no-personalize.png[No personalize]
 | Preferred DNS | `192.168.122.1` (или `8.8.8.8` при InetSim позже)
 |===
 
-[start=6]
-6. **OK** → в **cmd**: `ipconfig` и `ping 192.168.122.1`.
++
+**OK** → в **cmd**: `ipconfig` и `ping 192.168.122.1`.
 
 **Проверка:** `ping 192.168.122.1` с **0% loss** — IP и шлюз настроены верно. Ping **с host на guest** — только после этапа 6 (<<win10-firewall>>, после перезагрузки).
 
@@ -812,7 +812,7 @@ image::utm/cuckoo-sandbox/kvm/W10-18-ipconfig-ping.png[ipconfig]
 * Двойной щелчок → **Disabled** (Отключено) → **Apply** → **OK**.
 
 [start=3]
-3. **Перезагрузить** guest (**Пуск → Power → Restart**).
+. **Перезагрузить** guest (**Пуск → Power → Restart**).
 
 Полное отключение Defender (реестр + Safe Mode) — обязательно **перед снапшотом** (<<win10-defender-off>>). UI и gpedit выше — недостаточно для малвари (Error 225).
 
@@ -1011,7 +1011,7 @@ DWORD (32-bit):
 По желанию: `...\Services\wscsvc` → **Start** = **4**; `...\Services\Sense` → **Start** = **4** (если есть).
 
 [start=4]
-4. **Win+R** → `msconfig` → **Boot** → снять **Safe boot** → **Restart** (иначе снова Safe Mode).
+. **Win+R** → `msconfig` → **Boot** → снять **Safe boot** → **Restart** (иначе снова Safe Mode).
 
 ==== D. Проверка (обычный режим)
 
