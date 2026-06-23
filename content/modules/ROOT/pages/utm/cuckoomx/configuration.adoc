@@ -1,50 +1,10 @@
 = Конфигурация и сценарии настройки CuckooMX
 
-Ниже приведена пошаговая установка связки Postfix (приём SMTP), OPNsense (межсетевой экран и NAT) и CuckooMX с отправкой образцов в Cuckoo Sandbox по REST API. Скрипт `cuckoomx.pl` и пример `cuckoomx.conf` следует брать из каталога https://gitlab.arachnd.ru/solutions/arachnid.utm/-/tree/main/cuckooMX/cuckooMX%20modified[cuckooMX modified] репозитория Arachnid.UTM.
+Ниже приведены сценарии настройки связки Postfix (приём SMTP), OPNsense (межсетевой экран и NAT) и CuckooMX с отправкой образцов в Cuckoo Sandbox по REST API.
+
+Перед настройкой установите Postfix и разместите `cuckoomx.pl` с `cuckoomx.conf` (см. xref:utm/cuckoomx/installation.adoc[установку CuckooMX]).
 
 Иллюстрации воспроизводят рабочую конфигурацию из внутренней инструкции: адреса, доменные имена и подсети на скриншотах относятся к лабораторному стенду; на продакшене замените их на свои значения.
-
-Команды, где явно не указано иное, выполняются с правами суперпользователя (`sudo`) в оболочке на узле с Postfix.
-
-== Установка Postfix и сопутствующих пакетов
-
-Установите пакеты (пример для Debian или Ubuntu):
-
-* `postfix` — почтовый агент;
-* `postfix-pcre` — поддержка выражений PCRE в конфигурации Postfix;
-* `mailutils` — утилиты для работы с почтовыми ящиками из командной строки.
-
-.Установка пакетов в системе
-image::utm/cuckoomx/image1.png[Установка пакетов Postfix и зависимостей]
-
-.Подтверждение установки
-image::utm/cuckoomx/image2.png[Завершение установки пакетов]
-
-В ходе настройки Postfix откроется диалог выбора типа конфигурации.
-
-.Мастер настройки Postfix
-image::utm/cuckoomx/image3.png[Диалог конфигурации Postfix]
-
-.Продолжение мастера настройки
-image::utm/cuckoomx/image4.png[Диалог конфигурации Postfix]
-
-Рекомендуется тип *Internet Site*: Postfix принимает почту в вашей сети как полноценный сервер. Вариант *Local only* ограничивает приём локальным узлом (или интерфейсом loopback) и для сценария приёма почты из сети обычно не подходит.
-
-.Выбор типа конфигурации почты
-image::utm/cuckoomx/image5.png[Тип установки Internet Site]
-
-Укажите основной домен почты (FQDN зоны, в которой будут адреса получателей). После завершения установки убедитесь, что служба Postfix активна и слушает TCP-порт 25.
-
-.Задание домена и проверка службы
-image::utm/cuckoomx/image6.png[Имя почтового домена и проверка unit]
-
-.Прослушивание порта 25
-image::utm/cuckoomx/image7.png[Проверка состояния Postfix]
-
-Для проверки сокета используйте, например, `ss -lntp` и убедитесь, что процесс `master` Postfix слушает порт 25.
-
-.Прослушивание SMTP на порту 25
-image::utm/cuckoomx/image8.png[Вывод ss: master на порту 25]
 
 == Настройка `main.cf`
 
@@ -156,37 +116,7 @@ ripmime -i /path/to/mailbox -d /path/to/extract/dir
 .Пример вызова ripmime
 image::utm/cuckoomx/image25.png[Извлечение вложений ripmime]
 
-== Установка CuckooMX
-
-=== Зависимости Perl и утилита ripmime
-
-Перед размещением скрипта установите перечисленные в вашей ревизии `cuckoomx.pl` модули Perl (часто пакетируются в дистрибутиве отдельными пакетами `lib*-perl`). Установите также `ripmime`, если используете его для отладки.
-
-.Установка модулей Perl
-image::utm/cuckoomx/image26.png[Установка зависимостей Perl]
-
-.Установка ripmime
-image::utm/cuckoomx/image27.png[Установка пакета ripmime]
-
-=== Размещение скрипта и конфигурации
-
-Создайте каталог для конфигурации (пример: `/data/cuckoo/conf`) и скопируйте в него `cuckoomx.conf` из поставки. Скрипт `cuckoomx.pl` разместите в выбранном каталоге (пример: `/data/cuckoo/`). Пути могут отличаться при согласовании с политикой размещения ПО.
-
-.Каталог конфигурации
-image::utm/cuckoomx/image28.png[Каталог conf и файл cuckoomx.conf]
-
-.Каталог со скриптом
-image::utm/cuckoomx/image29.png[Файл cuckoomx.pl в каталоге данных]
-
-.Проверка наличия файлов
-image::utm/cuckoomx/image30.png[Список файлов CuckooMX]
-
-Сделайте скрипт исполняемым:
-
-[source,shell]
-----
-sudo chmod +x /data/cuckoo/cuckoomx.pl
-----
+== Настройка CuckooMX
 
 === Права доступа
 
@@ -295,4 +225,6 @@ sudo tail -f /var/log/mail.log | grep cuckoomx
 .Пример ошибки загрузки модуля Perl в журнале
 image::utm/cuckoomx/image40.png[mail.log: ошибка Perl]
 
-Следующая страница: xref:utm/cuckoomx/perfomance.adoc[Анализ производительности и варианты оптимизации CuckooMX].
+'''
+
+Следующая страница: xref:utm/cuckoomx/installation.adoc[Установка CuckooMX].

@@ -1,3 +1,7 @@
 = Общее описание решения modSecurity
 
 Раздел в подготовке.
+
+'''
+
+Следующая страница: xref:utm/modsecurity/architecture.adoc[Детальная архитектура ModSecurity].

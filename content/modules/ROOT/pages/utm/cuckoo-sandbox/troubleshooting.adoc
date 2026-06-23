@@ -1,10 +1,12 @@
 = Поиск и устранение неисправностей Cuckoo Sandbox
 
+Разделы до xref:utm/cuckoo-sandbox/troubleshooting.adoc#kvm-troubleshooting[устранения неисправностей KVM] относятся к стенду на **VirtualBox** (`192.168.56.0/24`, InetSim на host-only). Для **KVM/libvirt** (`virbr0`, `192.168.122.0/24`) — сразу к разделу KVM ниже.
+
 Внимание: Ошибки виртуальной сети! Виртуальная сеть — жизненно важный компонент для Cuckoo, вы должны быть абсолютно уверены, чтобы обеспечить связь между хостом и гостевой системой. Большинство проблем, о которых сообщают пользователи, связаны с неправильной настройкой их сети. Если вы не уверены в этом, проверьте документацию к вашему программному обеспечению для виртуализации и проверьте связь с помощью ping и telnet.
 
 == Гостевая Windows 10 и язык образа
 
-В этом руководстве гостевая система — Windows 10 x64. Установочный образ и окружение Windows должны быть с английской локализацией (язык дистрибутива, не только переключатель языка в уже установленной ОС): иначе Cuckoo Sandbox часто ведёт себя нестабильно. Если симптомы непонятны, сначала сверьтесь с xref:utm/cuckoo-sandbox/configuration.adoc#guest-vm-os[разделом конфигурации] про создание гостевой ВМ и выбор ISO.
+В этом руководстве гостевая система — Windows 10 x64. Установочный образ и окружение Windows должны быть с английской локализацией (язык дистрибутива, не только переключатель языка в уже установленной ОС): иначе Cuckoo Sandbox часто ведёт себя нестабильно. Если симптомы непонятны, сначала сверьтесь с xref:utm/cuckoo-sandbox/installationVBox.adoc#guest-vm-os[установкой VirtualBox] (образ и гостевая ВМ) или xref:utm/cuckoo-sandbox/installationKVM.adoc#win10-setup[установкой KVM] (этап установки Windows).
 
 == Связность и InetSim
 
@@ -12,7 +14,7 @@
 
 * проверьте `service_bind_address` и `dns_default_ip` в `/etc/inetsim/inetsim.conf` (совпадают с адресом Host-only, например `192.168.56.1`);
 * выполните `sudo systemctl status inetsim` при необходимости `sudo systemctl restart inetsim`;
-* повторите настройку адаптера по разделу xref:utm/cuckoo-sandbox/configuration.adoc#guest-network[настройке гостевой сети].
+* повторите настройку адаптера по разделу xref:utm/cuckoo-sandbox/installationVBox.adoc#guest-network[настройке гостевой сети VirtualBox] (для KVM — сеть `virbr0` в xref:utm/cuckoo-sandbox/installationKVM.adoc[установке KVM]).
 
 == Something went wrong в веб-интерфейсе
 
@@ -28,3 +30,350 @@
 
 Первый успешный анализ можно проверять по выполненному отчёту по тестовому `eicar.zip`; возможны ошибки, требующие ручной доработки конкретного стенда.
 
+[[kvm-troubleshooting]]
+== Устранение неисправностей при установке KVM (Ubuntu 18.04 + libvirt)
+
+Материалы ниже относятся к пошаговой установке Cuckoo Sandbox 2.0.7 с гостевой ВМ в **KVM/libvirt** (не VirtualBox). Процедура установки — xref:utm/cuckoo-sandbox/installationKVM.adoc[Установка Cuckoo Sandbox (KVM)].
+
+[[m2crypto-pip-fail]]
+== pip install m2crypto==0.24.0 падает
+
+*Симптом:* gcc/SWIG ошибки в `_m2crypto_wrap.c`.
+
+*Решение:*
+
+[source,shell]
+----
+sudo apt-get install -y python-m2crypto
+sudo su - cuckoo
+mv ~/venv ~/venv.bak
+virtualenv --system-site-packages ~/venv
+source ~/venv/bin/activate
+pip install -U pip setuptools wheel cuckoo==2.0.7
+----
+
+[[libvirtd-group]]
+== usermod: group 'libvirtd' does not exist
+
+[source,shell]
+----
+sudo usermod -a -G libvirt,kvm cuckoo
+----
+
+[[pcap-group]]
+== usermod: group 'pcap' does not exist
+
+*Симптом:* при `usermod -a -G libvirt,kvm,pcap cuckoo` — `group 'pcap' does not exist`.
+
+*Причина:* группа `pcap` создаётся позже (`groupadd`), после установки tcpdump.
+
+*Решение:* сначала только `libvirt,kvm`; затем блок tcpdump:
+
+[source,shell]
+----
+sudo groupadd pcap 2>/dev/null || true
+sudo usermod -a -G pcap cuckoo
+sudo chgrp pcap /usr/sbin/tcpdump
+sudo setcap cap_net_raw,cap_net_admin=eip /usr/sbin/tcpdump
+----
+
+После любого `usermod` — log out / log in или `sudo su - cuckoo`.
+
+== cuckoo --version — No such command
+
+[source,shell]
+----
+pip show cuckoo | grep Version
+python -c "import cuckoo; print cuckoo.__version__"
+----
+
+[[virt-manager-uefi]]
+== virt-manager: UEFI Not found
+
+Достаточно **BIOS + i440FX** для Win10 LTSC.
+
+== virt-manager: ошибка qemu:///system
+
+image::utm/cuckoo-sandbox/kvm/A1-5-opt-virt-manager-connection-error.png[Ошибка подключения]
+
+*Решение:* log out / log in; `virsh list --all`.
+
+[[cuckoo-not-sudoers]]
+== cuckoo: not in sudoers
+
+`apt` и `/etc` — **ваш_пользователь**; Cuckoo — **cuckoo**.
+
+== REST API: 500, AttributeError is_xhr
+
+[source,shell]
+----
+pip install werkzeug==0.16.1
+----
+
+[[postgresql-heredoc-backslash]]
+== psql heredoc: invalid command \
+
+*Симптом:* при `sudo -u postgres psql <<'EOF'` между `CREATE ROLE` и `CREATE DATABASE` — `invalid command \`.
+
+*Причина:* в heredoc с кавычками (`<<'EOF'`) символ `\` в конце строки **не** склеивает SQL, а передаётся в `psql` как отдельная meta-команда.
+
+*Решение:* `CREATE DATABASE` **одной строкой**, без `\`:
+
+[source,shell]
+----
+sudo -u postgres psql <<'EOF'
+CREATE USER cuckoo WITH PASSWORD 'ваш_пароль';
+CREATE DATABASE cuckoo ENCODING 'UTF8' LC_COLLATE='en_US.UTF-8' LC_CTYPE='en_US.UTF-8' TEMPLATE template0 OWNER cuckoo;
+GRANT ALL PRIVILEGES ON DATABASE cuckoo TO cuckoo;
+\q
+EOF
+----
+
+Если при ошибке уже видели `CREATE ROLE`, `CREATE DATABASE`, `GRANT` — БД, скорее всего, **создана**. Проверка:
+
+[source,shell]
+----
+psql -h localhost -U cuckoo -d cuckoo -c 'SELECT version();'
+sudo -u postgres psql -c "\l" | grep cuckoo
+----
+
+Повторный `CREATE USER` / `CREATE DATABASE` без `IF NOT EXISTS` даст «already exists» — это нормально, идите дальше по документу.
+
+[[resultserver-bind]]
+== Cuckoo: Cannot assign requested address (192.168.56.1:2042)
+
+*Симптом:* после добавления только `connection` в `cuckoo.conf` команда `cuckoo` падает:
+`Unable to bind ResultServer on 192.168.56.1:2042 [Errno 99] Cannot assign requested address`.
+
+*Причина:* после `cuckoo init` остаются дефолты **VirtualBox** (`192.168.56.1`). На KVM нужен **`192.168.122.1`** (virbr0). Guest Windows на этом шаге **не обязателен**.
+
+*Решение:* в `~/.cuckoo/conf/cuckoo.conf`:
+
+[source,ini]
+----
+[cuckoo]
+machinery = kvm
+
+[resultserver]
+ip = 192.168.122.1
+port = 2042
+
+[database]
+connection = postgresql://cuckoo:ПАРОЛЬ@localhost/cuckoo
+----
+
+[source,shell]
+----
+ip addr show virbr0 | grep 192.168.122.1
+source ~/venv/bin/activate
+cuckoo
+----
+
+403 на `updates.json` — не критично. Полная настройка — xref:utm/cuckoo-sandbox/installationKVM.adoc[установка KVM], раздел PostgreSQL / конфигурация.
+
+== PostgreSQL: psycopg2 2.6.2 + PG 10
+
+image::utm/cuckoo-sandbox/kvm/A8-1-psycopg2-2.6.2-error.png[psycopg2 2.6.2 fail]
+
+[source,shell]
+----
+pip install psycopg2==2.7.7
+----
+
+image::utm/cuckoo-sandbox/kvm/A8-1-psycopg2-pip-2.7.7.png[2.7.7 OK]
+image::utm/cuckoo-sandbox/kvm/A8-1-psycopg2-import-ok.png[import OK]
+
+== cuckoo migrate на пустой PostgreSQL
+
+image::utm/cuckoo-sandbox/kvm/A8-1-cuckoo-migrate-error-machines.png[migrate error]
+
+Запустите **`cuckoo`** (daemon), не `cuckoo migrate`.
+
+== DROP SCHEMA: must be owner of schema public
+
+image::utm/cuckoo-sandbox/kvm/A8-1-psql-drop-schema-permission-denied.png[permission denied]
+
+[source,shell]
+----
+sudo -u postgres psql -d cuckoo <<'EOF'
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public AUTHORIZATION cuckoo;
+GRANT ALL ON SCHEMA public TO cuckoo;
+GRANT ALL ON SCHEMA public TO public;
+EOF
+----
+
+image::utm/cuckoo-sandbox/kvm/A8-1-postgresql-drop-schema-ok.png[DROP OK]
+
+== analyses/1 already exists
+
+[source,shell]
+----
+mv ~/.cuckoo/storage/analyses ~/.cuckoo/storage/analyses.bak-pre-postgres
+mkdir -p ~/.cuckoo/storage/analyses
+----
+
+== Permission denied при распаковке ZIP
+
+[source,shell]
+----
+mkdir -p ~/extracted
+7z x archive.zip -p'password' -o/home/cuckoo/extracted/
+sudo chown cuckoo:cuckoo /path/to/file.zip
+----
+
+[[defender-error-225]]
+== Error 225 (Windows Defender)
+
+*Симптом:* в Cuckoo Log: `WindowsError: [Error 225] … file contains a virus or potentially unwanted software`; behavior log пустой.
+
+*Решение:* полное отключение Defender в guest — xref:utm/cuckoo-sandbox/installationKVM.adoc#win10-defender-off[установка KVM: реестр + Safe Mode] → перезагрузка → **новый** снапшот `clean`:
+
+[source,shell]
+----
+virsh snapshot-delete win10 clean
+virsh snapshot-create-as win10 clean --description "Defender off"
+----
+
+[[guest-ping-host-fail]]
+== Ping: с guest `.1` OK, с host guest — 100% loss
+
+*Симптом:* в guest `ping 192.168.122.1` — OK; на host `ping 192.168.122.105` — **100% packet loss**.
+
+*Когда бывает:* чаще всего **до** отключения брандмауэра (этап 6 xref:utm/cuckoo-sandbox/installationKVM.adoc[установки KVM]) или если ping с host делали раньше времени. После перезагрузки guest с выключенным firewall ping с host должен проходить.
+
+image::utm/cuckoo-sandbox/kvm/W10-19-ping-host-fail-firewall.png[guest OK, host fail]
+
+*Решение (lab):* в guest отключить firewall — xref:utm/cuckoo-sandbox/installationKVM.adoc#win10-firewall[этап 6 в установке KVM].
+
+*Решение (точечно):* **wf.msc** → Inbound Rules → **File and Printer Sharing (Echo Request - ICMPv4-In)** → **Enable** (профиль Private).
+
+*Проверка:* с host `ping -c 3 192.168.122.105` → 0% loss. Для Cuckoo важнее `nc -zv 192.168.122.105 8000` после установки Agent.
+
+== eicar.com — 16-bit
+
+На Win10 x64 не запускается. Тест: **notepad** / **mspaint** + `human=0`.
+
+== calc.exe — crash
+
+UWP-stub Win10. Тест: notepad / mspaint.
+
+[[human-action-center]]
+== human=0 и Action Center
+
+Модуль `human` кликает по подстроке **new** в «No **new** notifications». Отключение Action Center в guest — этап 9 в xref:utm/cuckoo-sandbox/installationKVM.adoc[установке KVM].
+
+**Submit с human=0 (host)** — для **notepad**, **mspaint** и других GUI-сэмплов (**→ `cuckoo`, venv**):
+
+[source,shell]
+----
+cuckoo submit --options human=0 /tmp/notepad.exe
+cuckoo submit --options human=0 /tmp/mspaint.exe
+----
+
+В Web → Analyzer log: **нет** повторов `Action Center … clicking it`; на скриншотах — окно сэмпла, а не трей.
+
+== Один скриншот, окна нет
+
+Screenshots шлёт кадр только при смене экрана. `human=0`, попробуйте mspaint.
+
+image::utm/cuckoo-sandbox/kvm/07-02-cuckoo-log-mspaint.png[Лог mspaint]
+
+== mspaint: Unable to create new document
+
+Ограничение mspaint в Temp, не баг Cuckoo.
+
+[[firefox-guest]]
+== Firefox в guest (не ставить в базовую установку)
+
+В xref:utm/cuckoo-sandbox/installationKVM.adoc[установке KVM] Firefox **не** входит в эталонный guest. На Win10 LTSC в lab он часто **нестабилен** (падения, конфликты с Python 2.7 / старыми зависимостями) и для Cuckoo **не нужен**.
+
+**URL-анализ** — пакет **`ie`** (Internet Explorer встроен в Windows):
+
+[source,shell]
+----
+cuckoo submit --package ie \
+  --options "human=0,route=inetsim,enforce_timeout=yes,free=yes" \
+  http://example.com
+----
+
+Если Firefox уже установлен и мешает — удалите из guest или не включайте в снапшот `clean`. Для скачивания `agent.py` с host достаточно **Edge** (закрыть промо на этапе 4 установки).
+
+== Volatility: memory dump not found
+
+image::utm/cuckoo-sandbox/kvm/A8-3-memory-dump-not-found-cuckoo-conf.png[dump not found]
+
+`memory_dump = yes` в cuckoo.conf.
+
+== Volatility: profile 17134 на guest 19044
+
+image::utm/cuckoo-sandbox/kvm/A8-3-volatility-incompatible-profile-17134.png[17134 fail]
+image::utm/cuckoo-sandbox/kvm/A8-3-volatility-addrspace-error-17134.png[AddrSpaceError]
+
+Volatility **master** + **Win10x64_19041**:
+
+[source,shell]
+----
+cd ~/volatility && git checkout master && git pull
+pip uninstall volatility -y && python setup.py install
+----
+
+image::utm/cuckoo-sandbox/kvm/A8-3-volatility-19041-pslist-ok.png[19041 OK]
+
+[[inetsim-not-working]]
+== route=inetsim, но реальные Microsoft IP
+
+**/etc/inetsim/inetsim.conf:**
+
+[source]
+----
+service_bind_address 127.0.0.1
+dns_bind_port        53
+dns_default_ip       192.168.122.1
+----
+
+**routing.conf:** `server = 127.0.0.1`, `ports =` (пусто).
+
+**99-cuckoo-bridge.conf:** `br_netfilter`, `route_localnet=1`, `ip_forward=1`.
+
+T0: `sudo /home/cuckoo/venv/bin/cuckoo rooter -g cuckoo` (не `~/venv` — при sudo это home `ваш_пользователь`, не `cuckoo`).
+
+image::utm/cuckoo-sandbox/kvm/A8-4-inetsim-127-version.png[INetSim version]
+image::utm/cuckoo-sandbox/kvm/A8-4-inetsim-conf-bind-dns.png[bind 127.0.0.1:53]
+
+Проверка: `dig @127.0.0.1 example.com` → `192.168.122.1` (не `dig @192.168.122.1` — там dnsmasq).
+
+== /status timeout :8000
+
+Часто после snapshot. Если анализ завершился — не fatal. `nc -zv 192.168.122.105 8000`.
+
+== ZIP с паролем в Web UI
+
+CLI:
+
+[source,shell]
+----
+cuckoo submit --package zip --options "password=ПАРОЛЬ,file=inside.exe" sample.zip
+----
+
+== chown для submit
+
+[source,shell]
+----
+sudo chown cuckoo:cuckoo /path/to/sample.exe
+----
+
+== Сводная таблица
+
+[cols="2,3,3",options="header"]
+|===
+| Симптом | Причина | Решение
+| m2crypto pip fail | SWIG 3.x | apt + venv --system-site-packages
+| libvirtd | bionic | группа libvirt
+| API 500 | Werkzeug 1.0 | werkzeug==0.16.1
+| psycopg2 | pin 2.6.2 | psycopg2==2.7.7
+| migrate | пустая PG | cuckoo, не migrate
+| Error 225 | Defender | xref:utm/cuckoo-sandbox/installationKVM.adoc#win10-defender-off[реестр + Safe Mode] + новый `clean`
+| inetsim + real IP | sysctl/dnsmasq | route_localnet + rooter
+| Volatility DTB | 17134 | master + 19041
+|===

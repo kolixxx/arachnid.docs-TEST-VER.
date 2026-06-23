@@ -1,0 +1,1265 @@
+= Установка Cuckoo Sandbox (KVM)
+
+
+Проверенная процедура для лаборатории на **Ubuntu 18.04 LTS (bionic)** с **KVM/libvirt** (не VirtualBox).
+Официальная книга Cuckoo 2.0.7 дополнена обходами для bionic и Win10 x64.
+
+Ошибки и отладка — xref:utm/cuckoo-sandbox/troubleshooting.adoc#kvm-troubleshooting[раздел устранения неисправностей KVM].
+
+== Что получится в итоге
+
+* Host Ubuntu с Cuckoo **2.0.7** в Python 2.7 virtualenv
+* Очередь задач в **PostgreSQL**, отчёты Web UI в **MongoDB**
+* Гостевая **Windows 10 x64 LTSC** (build 19044) в KVM, снапшот `clean`
+* Сеть libvirt `virbr0` (`192.168.122.0/24`), guest `192.168.122.105`
+* Опционально: **Volatility 2.x** для RAM; **InetSim** — настраивается перед запуском Cuckoo (<<inetsim-setup>>)
+
+== Два пользователя на host
+
+[cols="1,2,3",options="header"]
+|===
+| Пользователь | Роль | Примеры команд
+| `ваш_пользователь` | sudo, apt, `/etc` | `apt install`, `sysctl`, `cuckoo rooter`
+| `cuckoo` | venv, Cuckoo, virsh | `pip install`, `cuckoo`, `cuckoo web`, `virsh`
+|===
+
+`ваш_пользователь` — ваш обычный аккаунт Ubuntu с **sudo** (в командах и путях подставьте свой логин).
+
+Пользователя `cuckoo` **не добавляют в sudoers**.
+
+=== Как читать блоки команд
+
+Перед командами указано, **кто выполняет** и нужен ли **virtualenv** (`~/venv`):
+
+[cols="1,3",options="header"]
+|===
+| Метка | Смысл
+| **`ваш_пользователь`, sudo** | ваш пользователь с правами sudo; `apt`, правки `/etc`, `cuckoo rooter`
+| **`ваш_пользователь`, без sudo** | проверки на host без sudo (или если уже в группе `libvirt`)
+| **`cuckoo`, venv** | `sudo su - cuckoo` → `source ~/venv/bin/activate` — все `pip`, `cuckoo`, `cuckoo web`
+| **`cuckoo`, без venv** | сессия `cuckoo`, venv не активирован (`virsh`, `groups`, `ulimit`)
+| **guest Win10** | действия внутри гостевой Windows (GUI / cmd)
+|===
+
+Если venv нужен, в блоке есть строка `source ~/venv/bin/activate` — её выполняют **в той же сессии** перед `pip` / `cuckoo`.
+
+== Требования к host
+
+**→ `ваш_пользователь`, без sudo**
+
+[source,shell]
+----
+lsb_release -a
+egrep -c '(vmx|svm)' /proc/cpuinfo   # >= 1
+free -h
+df -h /
+----
+
+Рекомендуется: **≥ 8 GiB RAM**, **≥ 60 GiB** свободного места, CPU с **vmx/svm**.
+
+image::utm/cuckoo-sandbox/kvm/00-01-host-check-lsb-free.png[Проверка ОС и RAM]
+
+== Обновление системы и Python 2.7
+
+Cuckoo 2.0.7 поддерживает только **Python 2.7**.
+
+**→ `ваш_пользователь`, sudo**
+
+[source,shell]
+----
+sudo apt-get update
+sudo apt-get upgrade -y
+
+sudo apt-get install -y python2.7 python2.7-dev python-pip \
+  python-virtualenv python-setuptools
+----
+
+**→ `ваш_пользователь`, без sudo** (проверка после apt)
+
+[source,shell]
+----
+python -V          # Python 2.7.17
+python -m pip --version
+----
+
+image::utm/cuckoo-sandbox/kvm/00-02a-python27-verify.png[Python 2.7 на host]
+
+== Системные пакеты (requirements)
+
+=== Библиотеки для pip и Cuckoo
+
+**→ `ваш_пользователь`, sudo**
+
+[source,shell]
+----
+sudo apt-get install -y python python-pip python-dev libffi-dev libssl-dev \
+  python-virtualenv python-setuptools libjpeg-dev zlib1g-dev swig
+----
+
+=== MongoDB (Web UI)
+
+**→ `ваш_пользователь`, sudo**
+
+[source,shell]
+----
+sudo apt-get install -y mongodb
+sudo systemctl enable mongodb
+sudo systemctl start mongodb
+----
+
+=== PostgreSQL (очередь задач)
+
+**→ `ваш_пользователь`, sudo**
+
+[source,shell]
+----
+sudo apt-get install -y postgresql libpq-dev
+sudo systemctl enable postgresql
+sudo systemctl start postgresql
+----
+
+image::utm/cuckoo-sandbox/kvm/A1-3-postgresql-systemctl-status.png[PostgreSQL active]
+
+=== KVM / libvirt
+
+**→ `ваш_пользователь`, sudo** (установка) **и без sudo** (`virsh` — если `ваш_пользователь` в группе `libvirt`)
+
+[source,shell]
+----
+sudo apt-get install -y qemu-kvm libvirt-bin ubuntu-vm-builder bridge-utils \
+  python-libvirt
+sudo systemctl enable libvirtd
+sudo systemctl start libvirtd
+virsh list --all
+----
+
+image::utm/cuckoo-sandbox/kvm/A1-5-virsh-list.png[virsh list]
+
+Опционально:
+
+**→ `ваш_пользователь`, sudo**
+
+[source,shell]
+----
+sudo apt-get install -y virt-manager
+----
+
+После установки **выйдите из сессии и войдите снова** (log out / log in) под своим пользователем (`ваш_пользователь`).
+Иначе virt-manager часто не подключается к `qemu:///system` («Cannot access socket»), потому что группы `libvirt` и `kvm` подтягиваются только при новом входе.
+Если пользователь `cuckoo` уже добавлен в эти группы — то же правило для него, если virt-manager запускаете от `cuckoo`.
+
+image::utm/cuckoo-sandbox/kvm/A1-5-opt-virt-manager-connected.png[virt-manager подключён после log out / log in]
+
+=== tcpdump
+
+**→ `ваш_пользователь`, sudo**
+
+[source,shell]
+----
+sudo apt-get install -y tcpdump apparmor-utils
+sudo aa-disable /usr/sbin/tcpdump
+----
+
+image::utm/cuckoo-sandbox/kvm/A1-8-aa-disable-tcpdump.png[aa-disable tcpdump]
+
+=== M2Crypto
+
+На Ubuntu 18.04 **не** собирайте `m2crypto==0.24.0` через pip — xref:utm/cuckoo-sandbox/troubleshooting.adoc#m2crypto-pip-fail[см. troubleshooting].
+
+**→ `ваш_пользователь`, sudo** (apt); проверка — **без sudo**
+
+[source,shell]
+----
+sudo apt-get install -y python-m2crypto
+python2 -c "import M2Crypto; print M2Crypto.__version__"   # 0.27.0
+----
+
+== Пользователь cuckoo и лимиты
+
+**→ `ваш_пользователь`, sudo**
+
+[source,shell]
+----
+sudo adduser cuckoo
+sudo usermod -a -G libvirt,kvm cuckoo
+----
+
+На bionic группа **`libvirt`**, не `libvirtd`. Группу **`pcap`** добавляют ниже — в блоке tcpdump (она создаётся командой `groupadd` только там).
+
+=== Лимит открытых файлов (nofile)
+
+Cuckoo при анализе держит много открытых дескрипторов (логи, PCAP, сокеты к VM, MongoDB).
+На Ubuntu по умолчанию лимит часто **1024** — этого мало; без повышения возможна ошибка
+*Too many open files*.
+
+**Один раз** от `ваш_пользователь` откройте `/etc/security/limits.conf` и **в конец файла**
+добавьте две строки (не заменяя существующие записи):
+
+**→ `ваш_пользователь`, sudo**
+
+[source,shell]
+----
+sudo nano /etc/security/limits.conf
+----
+
+[source]
+----
+cuckoo soft nofile 4096
+cuckoo hard nofile 8192
+----
+
+* `soft` — рабочий лимит для новых сессий пользователя `cuckoo`
+* `hard` — потолок, выше которого процесс сам поднять лимит не может
+
+После сохранения файла **обязательно новый вход** под `cuckoo` (старые SSH/su-сессии
+лимит не подхватят):
+
+**→ `ваш_пользователь`, sudo** (переход в `cuckoo`) **→ `cuckoo`, без venv**
+
+[source,shell]
+----
+# выйти из текущей сессии cuckoo и зайти снова, например:
+sudo su - cuckoo
+ulimit -n
+----
+
+Ожидаемо: **4096**. Если снова **1024** — проверьте опечатку в имени `cuckoo` в
+`limits.conf` или что перелогинились именно пользователя `cuckoo`.
+
+=== tcpdump без root для cuckoo
+
+**→ `ваш_пользователь`, sudo** (первые четыре команды); **`getcap`** — без sudo
+
+[source,shell]
+----
+sudo groupadd pcap 2>/dev/null || true
+sudo usermod -a -G pcap cuckoo
+sudo chgrp pcap /usr/sbin/tcpdump
+sudo setcap cap_net_raw,cap_net_admin=eip /usr/sbin/tcpdump
+getcap /usr/sbin/tcpdump
+# ожидаемо: /usr/sbin/tcpdump = cap_net_admin,cap_net_raw+eip
+----
+
+После `usermod` — новый вход под `cuckoo` и проверка групп:
+
+**→ `ваш_пользователь`, sudo** → **`cuckoo`, без venv**
+
+[source,shell]
+----
+sudo su - cuckoo
+groups
+# ожидаемо: cuckoo kvm libvirt pcap
+----
+
+image::utm/cuckoo-sandbox/kvm/00-06-getcap-tcpdump.png[getcap и groups после настройки tcpdump]
+
+== Установка Cuckoo в virtualenv
+
+**→ `cuckoo`, venv** (сначала войти как `cuckoo`, затем создать и активировать venv)
+
+[source,shell]
+----
+sudo su - cuckoo
+virtualenv --system-site-packages ~/venv
+source ~/venv/bin/activate
+pip install -U pip setuptools wheel
+pip install -U cuckoo==2.0.7
+pip show cuckoo | grep Version
+python -c "import cuckoo; print cuckoo.__version__"
+----
+
+=== init и community
+
+Создаёт каталог `~/.cuckoo/` (конфиги, agent, storage) и скачивает сигнатуры community.
+Выполнять **в той же сессии** — пользователь **`cuckoo`**, venv **активен**
+(`source ~/venv/bin/activate` уже выполнен выше; в prompt обычно `(venv)`).
+
+**→ `cuckoo`, venv**
+
+[source,shell]
+----
+cuckoo init
+cuckoo community
+----
+
+== PostgreSQL для очереди задач
+
+=== PostgreSQL (host)
+
+**→ `ваш_пользователь`, sudo** (`sudo -u postgres`)
+
+Замените `ЗАМЕНИ_ПАРОЛЬ` на свой пароль. **`CREATE DATABASE` — одной строкой** (без `\` в конце:
+в heredoc `<<'EOF'` обратный слэш не склеивает строки, а `psql` воспринимает `\` как служебную команду → `invalid command \`).
+
+[source,shell]
+----
+sudo -u postgres psql <<'EOF'
+CREATE USER cuckoo WITH PASSWORD 'ЗАМЕНИ_ПАРОЛЬ';
+CREATE DATABASE cuckoo ENCODING 'UTF8' LC_COLLATE='en_US.UTF-8' LC_CTYPE='en_US.UTF-8' TEMPLATE template0 OWNER cuckoo;
+GRANT ALL PRIVILEGES ON DATABASE cuckoo TO cuckoo;
+\q
+EOF
+----
+
+Ожидаемо по строкам: `CREATE ROLE`, `CREATE DATABASE`, `GRANT` — без `invalid command \`.
+
+Проверка:
+
+[source,shell]
+----
+psql -h localhost -U cuckoo -d cuckoo -c 'SELECT version();'
+----
+
+Ожидаемо: строка `PostgreSQL 10.23 ...` и `(1 row)`. Если экран с `(END)` и символами `~` — это **pager** (`less`), не ошибка: нажмите **`q`**, чтобы вернуться в shell.
+
+Без pager (по желанию):
+
+[source,shell]
+----
+PAGER=cat psql -h localhost -U cuckoo -d cuckoo -c 'SELECT version();'
+----
+
+image::utm/cuckoo-sandbox/kvm/A8-1-postgresql-create-db.png[Создание БД]
+
+При ошибке `invalid command \` — xref:utm/cuckoo-sandbox/troubleshooting.adoc#postgresql-heredoc-backslash[troubleshooting]; часто `CREATE ROLE` / `CREATE DATABASE` / `GRANT` уже прошли.
+
+image::utm/cuckoo-sandbox/kvm/A8-1-postgresql-heredoc-invalid-backslash.png[invalid command \ в heredoc]
+
+=== psycopg2
+
+**→ `cuckoo`, venv**
+
+[source,shell]
+----
+sudo su - cuckoo
+source ~/venv/bin/activate
+pip install psycopg2==2.7.7
+python -c "import psycopg2; print psycopg2.__version__"
+----
+image::utm/cuckoo-sandbox/kvm/A8-1-psycopg2-pip-2.7.7.png[psycopg2 2.7.7]
+
+=== connection, минимальный cuckoo.conf и схема БД
+
+**→ `cuckoo`, без venv** (редактор) — `~/.cuckoo/conf/cuckoo.conf`
+
+WARNING: После `cuckoo init` в конфиге по умолчанию **VirtualBox**: `machinery = virtualbox`, ResultServer **`192.168.56.1:2042`**. +
+На **KVM + libvirt** (`virbr0`) этого адреса на host **нет**. +
+Если добавить только `[database] connection` и сразу запустить `cuckoo`, получите: +
+`Unable to bind ResultServer on 192.168.56.1:2042 ... Cannot assign requested address` — это **не** ошибка PostgreSQL, а **ещё не настроенный** Cuckoo под KVM. +
+Guest VM на этом шаге **ещё не нужен**; нужно поправить **cuckoo.conf** (минимум ниже), затем первый запуск для создания таблиц в PostgreSQL.
+
+**Минимум в `cuckoo.conf` перед первым `cuckoo`:**
+
+[source,ini]
+----
+[cuckoo]
+machinery = kvm
+memory_dump = no
+process_results = yes
+
+[resultserver]
+ip = 192.168.122.1
+port = 2042
+
+[database]
+connection = postgresql://cuckoo:ВАШ_ПАРОЛЬ@localhost/cuckoo
+----
+
+* `192.168.122.1` — шлюз сети libvirt **default** (`virbr0`); интерфейс есть после установки KVM, **без** гостевой Windows.
+* `kvm.conf`, `routing.conf`, `reporting.conf` — в следующем разделе; до первого `cuckoo` их можно не трогать.
+
+Проверка, что адрес на host есть:
+
+[source,shell]
+----
+ip addr show virbr0 | grep 192.168.122.1
+----
+
+**Не** `cuckoo migrate` на пустой БД — один раз запустите daemon (создаст таблицы через SQLAlchemy):
+
+**→ `cuckoo`, venv**
+
+[source,shell]
+----
+source ~/venv/bin/activate
+cuckoo
+# ожидаемо: «Waiting for analysis tasks» (Loaded 0 machines — норма, guest ещё нет)
+# Ctrl+C
+----
+
+403 на `updates.json` при старте — **не критично** (версия 2.0.7).
+
+Если **не** меняли `[resultserver]` — daemon не стартует (ошибка вверху терминала на скрине ниже). Сначала правка `cuckoo.conf`, затем снова `cuckoo`.
+
+image::utm/cuckoo-sandbox/kvm/A8-1-cuckoo-resultserver-192-168-56-error.png[CRITICAL: 192.168.56.1 — до правки resultserver]
+
+Подробнее — xref:utm/cuckoo-sandbox/troubleshooting.adoc#resultserver-bind[troubleshooting].
+
+**→ `cuckoo`, venv** (или без venv — `psql` не требует venv)
+
+Проверка PostgreSQL после успешного `cuckoo`:
+
+[source,shell]
+----
+psql -h localhost -U cuckoo -d cuckoo -c '\dt'
+psql -h localhost -U cuckoo -d cuckoo -c 'SELECT * FROM alembic_version;'
+# cb1024e614b7
+----
+
+Ожидаемо: **10 таблиц** (`tasks`, `machines`, `samples`, …) и `version_num = cb1024e614b7`.
+Красная ошибка `192.168.56.1` вверху скрина — **старый** неудачный запуск; ниже — успешная проверка БД.
+
+image::utm/cuckoo-sandbox/kvm/A8-1-postgresql-tables-verify.png[10 таблиц и alembic_version cb1024e614b7]
+
+image::utm/cuckoo-sandbox/kvm/A8-1-postgresql-tables-alembic-version.png[alembic_version cb1024e614b7]
+
+== Конфигурация Cuckoo на host (полная)
+
+**→ `cuckoo`, без venv**
+
+Секции `[cuckoo]`, `[resultserver]`, `[database]` в `cuckoo.conf` вы уже задали перед первым запуском (PostgreSQL). Ниже — **проверить те же значения** и дописать остальные файлы; **`kvm.conf` с `[win10]`** — когда создадите guest (или заранее, но анализ заработает только после VM и snapshot).
+
+=== cuckoo.conf (итоговый)
+[source,ini]
+----
+[cuckoo]
+machinery = kvm
+memory_dump = no
+process_results = yes
+
+[resultserver]
+ip = 192.168.122.1
+port = 2042
+
+[database]
+connection = postgresql://cuckoo:ПАРОЛЬ@localhost/cuckoo
+----
+
+=== kvm.conf
+
+**→ `cuckoo`, без venv**
+
+Файл: `~/.cuckoo/conf/kvm.conf`. После `cuckoo init` там шаблон с **`machines = cuckoo1`** и секцией **`[cuckoo1]`** — **замените на `win10`**: переименуйте секцию в **`[win10]`**, в `[kvm]` укажите `machines = win10`, в секции машины — `label = win10` (имя домена libvirt из virt-manager). Остальные поля — по таблице ниже и разделу «Гостевая Windows 10».
+
+[source,ini]
+----
+[kvm]
+dsn = qemu:///system
+interface = virbr0
+machines = win10
+
+[win10]
+label = win10
+platform = windows
+ip = 192.168.122.105
+snapshot = clean
+osprofile = Win10x64_19041
+----
+
+=== reporting.conf
+
+[source,ini]
+----
+[mongodb]
+enabled = yes
+host = 127.0.0.1
+port = 27017
+db = cuckoo
+----
+
+=== routing.conf
+
+[source,ini]
+----
+[routing]
+route = none
+
+[inetsim]
+enabled = yes
+server = 127.0.0.1
+ports =
+----
+
+Перед первым тестом — установка InetSim на host (<<inetsim-setup>>).
+
+== Гостевая Windows 10 в KVM
+
+Guest — виртуальная машина **QEMU/KVM**. Имя домена **`win10`**, IP **`192.168.122.105`**, снапшот **`clean`** — те же значения, что в `kvm.conf`.
+
+**→ `ваш_пользователь` или `cuckoo`** — virt-manager на host (нужны группы `libvirt`, `kvm` и **log out / log in**). Внутри guest все шаги — в консоли VM (Spice/VNC).
+
+=== Порядок этапов (не перескакивать)
+
+[cols="1,2,1",options="header"]
+|===
+| # | Этап | Где
+| 1 | Создание VM в virt-manager | host, GUI
+| 2 | Установщик Windows (Setup) | guest, синие экраны
+| 3 | OOBE (первый вход) | guest
+| 4 | Сеть: discoverable, закрыть Edge | guest
+| 5 | Статический IP | guest
+| 6 | Defender, UAC, firewall, ping host↔guest | guest + host
+| 7 | Python, VC++, Pillow | guest
+| 8 | Cuckoo Agent | host + guest
+| 9 | Action Center, уведомления | guest
+| 10 | Defender: реестр + Safe Mode | guest
+| 11 | Снапшот `clean` | virt-manager + host
+|===
+
+Целевая сборка: **Windows 10 Enterprise LTSC 21H2**, build **19044.x** — проверка **`winver`** сразу после OOBE (<<win10-guest-verification>>).
+
+=== Требования к guest
+
+* **ОС:** Windows 10 **x64** (рекомендация Cuckoo 2.0+); в этой инструкции — **Enterprise LTSC** (build **19044.x**, проверка <<win10-guest-verification>>).
+* **Диск:** **qcow2** (обязательно — иначе снапшоты KVM не работают).
+* **Сеть:** сеть libvirt **`default`** → мост **`virbr0`**, подсеть **`192.168.122.0/24`**; у guest — **статический** IP (не DHCP).
+* **UAC:** отключить после установки (Win7+).
+* **Result Server** на host слушает **`192.168.122.1:2042`** — guest должен достучаться до `.1`.
+
+Перед созданием VM проверьте сеть на host:
+
+**→ `ваш_пользователь` или `cuckoo`, без venv**
+
+[source,shell]
+----
+virsh net-list --all
+ip addr show virbr0 | grep 192.168.122.1
+----
+
+Ожидаемо: сеть **`default`** в состоянии **active**; на **`virbr0`** адрес **`192.168.122.1/24`**.
+
+=== Создание VM в virt-manager
+
+==== Подготовка
+
+1. ISO Windows 10 x64 LTSC — локальный файл (например `~/Downloads/Win10_LTSC.iso`).
+2. Запустите **Virtual Machine Manager** (`virt-manager`). В списке слева должно быть **QEMU/KVM — Connect** без ошибки (скрин после log out — в разделе установки KVM).
+3. Свободное место на host: диск guest **≥ 60 GB** (qcow2 растёт по мере заполнения).
+
+==== Мастер «Create a new virtual machine»
+
+**File → New Virtual Machine** (или значок «Create»):
+
+[cols="1,3",options="header"]
+|===
+| Шаг мастера | Что выбрать
+| 1. How would you like to install? | **Local install media (ISO image or CDROM)**
+| 2. ISO | **Browse** → выбрать ISO Win10; если OS type не определился — **Windows 10**
+| 3. Memory and CPU | **2048** MiB RAM, **2** CPUs (на host с 8 GiB не давать guest больше 2–4 GiB)
+| 4. Enable storage | **Create a disk image**; размер **≥ 60 GB**; формат по умолчанию **qcow2**
+| 5. Ready to install | Включить **Customize configuration before install** → **Finish**
+|===
+
+Откроется окно **Details** (настройка железа **до** первой загрузки с ISO). VM должна быть в статусе **Shutoff**.
+
+==== Вкладка Overview (обзор)
+
+**→ virt-manager → win10 → Details → Overview**
+
+[cols="1,2,2",options="header"]
+|===
+| Поле | Значение | Зачем / `kvm.conf`
+| Name | **`win10`** | **`label = win10`** — имя домена libvirt (`virsh list --all`)
+| Architecture | **x86_64** | 64-bit guest
+| Hypervisor | **KVM** | —
+| Firmware | **BIOS** | для LTSC x64 на bionic достаточно BIOS + i440FX
+| Chipset | **i440FX** | типичная пара с BIOS; не менять после установки
+|===
+
+*UEFI:* если в списке Firmware пункт **UEFI** — «Not found», пакет OVMF не установлен. Для этой лаборатории оставьте **BIOS**. UEFI опционален (`sudo apt install ovmf`); смена firmware **после** установки Windows рискованна — не трогать.
+
+xref:utm/cuckoo-sandbox/troubleshooting.adoc#virt-manager-uefi[UEFI Not found — troubleshooting].
+
+==== Вкладка SATA Disk 1 (диск)
+
+**→ Details → SATA Disk 1**
+
+[cols="1,2",options="header"]
+|===
+| Параметр | Значение
+| Source path | `/var/lib/libvirt/images/win10.qcow2` (или путь из мастера)
+| Storage format | **qcow2**
+| Disk bus | **SATA** | Windows видит диск без virtio-драйверов на этапе установки
+| Readonly | выкл.
+| Shareable | выкл.
+|===
+
+VirtIO-диск (**virtio-scsi**) не обязателен; если позже переключите шину — понадобится `virtio-win.iso` внутри guest.
+
+==== Вкладка NIC (сеть)
+
+**→ Details → NIC** (Network interface)
+
+[cols="1,2",options="header"]
+|===
+| Параметр | Значение
+| Network source | **Virtual network `default`: NAT** | это **`virbr0`**, **`192.168.122.0/24`**
+| Device model | **e1000** | Intel NIC; Windows ставится без доп. драйверов
+| MAC address | автоматически (например `52:54:00:…`) | в **`kvm.conf` не указывают**
+|===
+
+Не выбирайте **Host device** / **macvtap** (bridged в LAN офиса), если guest должен жить только в **`192.168.122.x`** — для Cuckoo достаточно **`default`**.
+
+**`interface = virbr0`** в `kvm.conf` — имя моста на host для tcpdump; источник NIC в virt-manager — **`default`**.
+
+==== Вкладка IDE CDROM 1 и ресурсы
+
+**→ Details → IDE CDROM 1**
+
+* **Source path:** тот же ISO Win10 (мастер обычно уже привязал).
+* **Disconnect** — сразу после Setup, **до** OOBE (<<win10-iso-off>>); иначе VM снова грузится с установщика.
+
+**→ Details → CPUs / Memory** (если не задали в мастере)
+
+* **CPUs:** 2
+* **Memory:** 2048 MiB
+
+**Display:** Spice или VNC — только для ручной установки и настройки guest.
+
+==== Сводка: virt-manager → kvm.conf
+
+[cols="2,2,2",options="header"]
+|===
+| В virt-manager | Значение | В `~/.cuckoo/conf/kvm.conf`
+| Name (Overview) | `win10` | `machines = win10`, `[win10]` → `label = win10`
+| NIC → default NAT | virbr0 / 192.168.122.0/24 | `[kvm]` → `interface = virbr0`
+| IP внутри Windows (позже) | `192.168.122.105` | `[win10]` → `ip = 192.168.122.105`
+| Снапшот (позже) | `clean` | `[win10]` → `snapshot = clean`
+| Профиль Volatility (позже) | build 19044 → `Win10x64_19041` | `[win10]` → `osprofile = Win10x64_19041`
+|===
+
+==== Запуск VM с ISO
+
+1. **Apply** в окне Details (если меняли параметры).
+2. **Begin Installation** (или ▶ Run) — загрузка с ISO; дальше <<win10-setup>>.
+
+[[win10-setup]]
+=== Установщик Windows (Setup)
+
+**→ guest Win10**, этап **2** из таблицы выше. Синие экраны **до** OOBE. Везде **English (United States)** / **US**.
+
+NOTE: Скриншоты шагов установщика Windows (`W10-setup-*.png`) в исходных материалах отсутствуют; ниже — текстовые шаги. После добавления файлов в `images/utm/cuckoo-sandbox/kvm/` их можно вставить в этот раздел.
+
+*Язык, формат, раскладка* — **English (United States)** в каждом списке → **Next**.
+
+*Install now* → при запросе ключа — **I don't have a product key**.
+
+*Select operating system* — **Windows 10 Enterprise LTSC** → **Next**.
+
+Лицензия → **Accept** → **Custom: Install Windows only (advanced)**.
+
+Разметка: **Unallocated Space** на **Drive 0** (SATA) → **New** → **Apply** → выбрать раздел → **Next**.
+
+Дождаться копирования файлов и экрана «Getting ready». Установщик **перезагрузит** VM — дальше <<win10-iso-off,отключите ISO>> **до** OOBE.
+
+[[win10-iso-off]]
+==== Отключить ISO (перед OOBE)
+
+**→ `ваш_пользователь` или `cuckoo`, virt-manager** — **обязательно** между Setup и OOBE.
+
+После копирования файлов Setup перезагружает guest. Пока ISO подключён, VM снова стартует **с установочного диска** — OOBE не начнётся, возможен бесконечный цикл загрузки установщика.
+
+1. Дождаться перезагрузки (или сообщения «Windows needs to restart») → при необходимости **Force Off** в virt-manager, если guest уже крутится с ISO.
+2. VM в статусе **Shutoff**.
+3. **Details → IDE CDROM 1 → Disconnect** (ISO отвязан).
+4. **Run** — загрузка **с диска** (qcow2), начинается **OOBE** (<<win10-oobe>>).
+
+[[win10-oobe]]
+=== OOBE (первый вход Windows)
+
+**→ guest Win10**, этап **3**. Мастер после Setup; те же **English (United States)** / **US**, что на Setup.
+
+==== Регион и клавиатура
+
+* **Region:** **United States** → **Yes** (не Russia — для песочницы и анализа сэмплов нужна английская локаль).
+* **Language / display language:** **English (United States)** на всех экранах OOBE, где спрашивают язык интерфейса.
+* **Keyboard layout:** **US** → **Yes**; дополнительные раскладки (**Russian** и т.п.) **не** добавлять — **Skip** или оставить только **US**.
+
+image::utm/cuckoo-sandbox/kvm/W10-01-region.png[OOBE: United States]
+image::utm/cuckoo-sandbox/kvm/W10-02-keyboard.png[OOBE: keyboard US]
+
+Если появится экран «Add a keyboard layout» — **Skip** (только US).
+
+==== Учётная запись Microsoft
+
+* Не привязывайте guest к личному Microsoft account.
+* На экране входа в Microsoft account: **Join domain instead** / **Offline account** / **Domain join** (формулировка зависит от сборки) → создание **локального** пользователя.
+* Ссылку «Or, even better, use an online account» внизу экрана локального user — **не** использовать.
+* Корпоративный AD и домен для изолированной lab VM **не** настраиваем.
+
+==== Локальный пользователь и пароль
+
+* **Who's going to use this PC?** → имя **`cuckoo`** → **Next** (это учётная запись **Windows**, не Linux-user на host).
+* **Password** → **оставить пустым** → **Next** (удобно для Agent и автологина; если Windows не примет — минимальный пароль lab и записать).
+
+image::utm/cuckoo-sandbox/kvm/W10-04-local-user.png[Локальный user]
+image::utm/cuckoo-sandbox/kvm/W10-05-password-empty.png[Пустой пароль]
+
+==== Конфиденциальность (Privacy)
+
+Экран «Choose privacy settings» — все переключатели **Off** / **No** (Location, Find my device, Diagnostic data, Inking, Tailored experiences, Advertising ID) → **Accept**.
+
+image::utm/cuckoo-sandbox/kvm/W10-06-privacy-off.png[Privacy]
+
+==== Рабочий стол
+
+OOBE завершён — рабочий стол пользователя **`cuckoo`**.
+
+image::utm/cuckoo-sandbox/kvm/W10-07-desktop.png[Рабочий стол]
+
+[[win10-guest-verification]]
+==== Проверка сборки (winver)
+
+Сразу на рабочем столе — убедиться, что установилась нужная редакция (для `osprofile` в `kvm.conf`):
+
+* **Windows 10 Enterprise LTSC**, **21H2**, build **19044.x**
+* **Win+R** → `winver` → **OK**
+
+image::utm/cuckoo-sandbox/kvm/A8-3-win10-guest-build-19044-winver.png[build 19044]
+
+Профиля Volatility `Win10x64_19044` нет — для build **19044** на host позже укажите **`Win10x64_19041`** (`kvm.conf` → `osprofile`, см. раздел Volatility).
+
+=== Первый вход: сеть и Edge
+
+**→ guest Win10**, этап **4**. Сразу после появления рабочего стола, **до** статического IP и установки ПО.
+
+==== «Network discoverable?»
+
+**Yes** (Private) — проще ping host ↔ guest и Agent.
+
+image::utm/cuckoo-sandbox/kvm/W10-08-network-discovery.png[Private network]
+
+==== Edge и прочие промо — закрыть
+
+Edge/Cortana для Cuckoo не нужны — **X**, **Skip**, **No thanks**, **Start without your data**.
+
+image::utm/cuckoo-sandbox/kvm/W10-08b-edge-promo-close.png[Edge promo — закрыть]
+image::utm/cuckoo-sandbox/kvm/W10-08c-edge-start-without-data.png[Start without your data]
+image::utm/cuckoo-sandbox/kvm/W10-08d-edge-no-import.png[No import]
+image::utm/cuckoo-sandbox/kvm/W10-08e-edge-no-google.png[No Google]
+image::utm/cuckoo-sandbox/kvm/W10-08f-edge-no-personalize.png[No personalize]
+
+=== Статический IP и связь с host
+
+**→ guest Win10**, этап **5**. Без статического IP Cuckoo не найдёт guest по `192.168.122.105` из `kvm.conf`.
+
+1. **Win+R** → `ncpa.cpl` → Enter.
+2. Правый клик по адаптеру **Ethernet** → **Properties**.
+3. Снять галочку **Internet Protocol Version 6 (TCP/IPv6)** — для lab guest только **IPv4**.
+4. **Internet Protocol Version 4 (TCP/IPv4)** → **Properties**.
+5. **Use the following IP address:**
+
+[cols="1,2",options="header"]
+|===
+| Поле | Значение
+| IP address | `192.168.122.105`
+| Subnet mask | `255.255.255.0`
+| Default gateway | `192.168.122.1`
+| Preferred DNS | `192.168.122.1` (или `8.8.8.8` при InetSim позже)
+|===
+
+6. **OK** → в **cmd**: `ipconfig` и `ping 192.168.122.1`.
+
+**Проверка:** `ping 192.168.122.1` с **0% loss** — IP и шлюз настроены верно. Ping **с host на guest** — только после этапа 6 (<<win10-firewall>>, после перезагрузки).
+
+image::utm/cuckoo-sandbox/kvm/W10-18-ipconfig-ping.png[ipconfig]
+
+[[win10-firewall]]
+=== Defender, UAC, firewall
+
+**Где работать:** внутри **гостевой Windows** (окно VM в virt-manager). На Linux-host этот шаг не выполняется.
+
+**Зачем:** **Defender** удаляет или блокирует тестовые файлы при анализе, **брандмауэр** не пускает связь с Linux-host, **UAC** показывает лишние окна при запуске программ в VM. Отключаем **до** установки Python и Cuckoo Agent (этапы 7 и 8). **Action Center** — отдельно, этап 9.
+
+**Windows Security → Virus & threat protection → Manage settings** — всё **Off**.
+
+**Control Panel → User Accounts → Change User Account Control Settings** — **Never notify**.
+
+**Control Panel → Windows Defender Firewall → Turn Windows Defender Firewall on or off** — для **Private** (и при необходимости Domain/Public) — **Turn off** → OK.
+
+*Альтернатива (оставить firewall включённым):* **Win+R** → `wf.msc` → **Inbound Rules** → включить **File and Printer Sharing (Echo Request - ICMPv4-In)** для профиля **Private** — тогда ping с host заработает без полного отключения firewall.
+
+**Settings → Windows Update → Advanced options** — автообновления **Off**.
+
+==== Групповые политики (gpedit.msc)
+
+На **Windows 10 Enterprise LTSC** редактор локальной групповой политики обычно есть. Если `gpedit.msc` не открывается — пропустите этот подпункт; при **Error 225** на анализе см. xref:utm/cuckoo-sandbox/troubleshooting.adoc#defender-error-225[troubleshooting].
+
+1. **Win+R** → ввести `gpedit.msc` → **OK** (или ПКМ по **Пуск** → **Run**).
+2. В дереве слева раскрывать папки по пути (на английской Windows — те же имена):
+
+**Отключить Microsoft Defender Antivirus**
+
+* Путь в дереве слева:
+
+  **Computer Configuration** → **Administrative Templates** → **Windows Components** → **Microsoft Defender Antivirus**
+
+* В списке справа найти политику **Turn off Microsoft Defender Antivirus** (в русской Windows может называться **Отключить антивирусную программу «Защитник Windows»**).
+* Двойной щелчок → **Enabled** (Включено) → **Apply** → **OK**.
+
+  *Значение **Enabled** здесь означает «политика включена = Defender выключен».*
+
+**Отключить автоматические обновления**
+
+* В том же окне `gpedit.msc`, дерево слева:
+
+  **Computer Configuration** → **Administrative Templates** → **Windows Components** → **Windows Update**
+
+* Справа — **Configure Automatic Updates** (**Настройка автоматического обновления**).
+* Двойной щелчок → **Disabled** (Отключено) → **Apply** → **OK**.
+
+3. **Перезагрузить** guest (**Пуск → Power → Restart**).
+
+Полное отключение Defender (реестр + Safe Mode) — обязательно **перед снапшотом** (<<win10-defender-off>>). UI и gpedit выше — недостаточно для малвари (Error 225).
+
+==== Ping host ↔ guest
+
+После перезагрузки — **первый** раз проверяем связь **с Linux-host на guest**.
+
+**→ `ваш_пользователь` или `cuckoo`, без venv**
+
+[source,shell]
+----
+ping -c 3 192.168.122.105
+----
+
+Ожидаемо: **0% packet loss**, ttl≈128.
+
+image::utm/cuckoo-sandbox/kvm/W10-19-ping-from-host.png[ping с host]
+
+Дополнительно в guest: `ping 192.168.122.1` — по-прежнему 0% loss.
+
+Если с host **100% loss**, а с guest `.1` OK — брандмауэр ещё блокирует входящий ICMP; см. xref:utm/cuckoo-sandbox/troubleshooting.adoc#guest-ping-host-fail[troubleshooting].
+
+=== ПО в guest (analyzer)
+
+**→ guest Win10**, этап **7**. Нужно для Cuckoo analyzer (файлы, скриншоты, часть пакетов).
+
+**Python 2.7.10 amd64**, VC++ 2005–2015 (x86/x64), **Pillow 2.9.0**.
+
+image::utm/cuckoo-sandbox/kvm/W10-09-python-version.png[Python в guest]
+
+Для **URL-анализа** отдельный браузер в guest **не** ставим — используйте пакет **`ie`** на host (встроенный Internet Explorer в Win10). Если ставили Firefox и он падает — xref:utm/cuckoo-sandbox/troubleshooting.adoc#firefox-guest[troubleshooting].
+
+=== Cuckoo Agent
+
+**→ host + guest**, этап **8**. Python в guest уже установлен; с host должен пинговаться `192.168.122.105`.
+
+**→ `ваш_пользователь`, sudo** (HTTP-сервер на :8080; нужен уже выполненный `cuckoo init` от `cuckoo`)
+
+[source,shell]
+----
+cd /tmp && sudo cp /home/cuckoo/.cuckoo/agent/agent.py /tmp/
+sudo python -m SimpleHTTPServer 8080
+----
+
+Копирование в guest:
+
+**→ guest Win10** (браузер): `http://192.168.122.1:8080/agent.py` → сохранить как `agent.pyw` на рабочем столе.
+
+==== Автозапуск Agent (Планировщик заданий)
+
+**→ guest Win10**. Agent должен слушать **:8000** после каждого входа в Windows **с правами администратора** (иначе analyzer предупреждает «not running as Administrator»). Ярлык в `shell:startup` прав **не** даёт — нужен **Task Scheduler**.
+
+1. Если клали ярлык в автозагрузку — убрать: **Win+R** → `shell:startup` → удалить **agent.pyw - Shortcut** (иначе два `pythonw.exe`).
+2. **Win+R** → `taskschd.msc` → **Create Task…** (не *Basic Task*).
+
+**Вкладка General (Общие)**
+
+* **Name:** `Cuckoo Agent`
+* **Security options:** **Run only when user is logged on**
+* **User:** `ВАШ-HOSTNAME\cuckoo` (например `DESKTOP-ABC123\cuckoo`)
+* **Run with highest privileges** — **включить** (обязательно)
+* **Configure for:** Windows 10
+
+**Вкладка Triggers (Триггеры)** → **New…**
+
+* **Begin the task:** **At log on** (не *At startup*)
+* **Specific user:** `…\cuckoo`
+* **Enabled** — ON
+* При необходимости **Delay task for:** 30–60 s (если :8000 не сразу после входа)
+
+**Вкладка Actions (Действия)** → **New…**
+
+* **Action:** Start a program
+* **Program/script:** `C:\Python27\pythonw.exe`
+* **Add arguments:** `C:\Users\cuckoo\Desktop\agent.pyw`
+* **Start in (optional):** `C:\Users\cuckoo\Desktop`
+
+Путь к `agent.pyw` — **полный**; не обрезать до `koo\Desktop\…`.
+
+**Вкладка Conditions (Условия)**
+
+* Снять **Start the task only if the computer is on AC power** (для VM).
+* Idle / Wake — не включать.
+
+**Вкладка Settings (Параметры)**
+
+* **Allow task to be run on demand** — ON
+* **If the task is already running:** **Do not start a new instance**
+* **Stop the task if it runs longer than** — **выключить** (чтобы не убивать Agent)
+
+**Сохранить и проверить**
+
+1. **OK** → пароль пользователя `cuckoo` (пустой) → **Enter**.
+2. Нажать 2 раза по задаче **Cuckoo Agent** → справа в меню Selected Item **Run**.
+3. **Task Manager** → **Details** → один процесс **pythonw.exe**.
+4. На host: `nc -zv 192.168.122.105 8000` → succeeded.
+5. **Перезагрузить** guest → снова п. 3–4 без ручного запуска.
+
+Проверка с host:
+
+**→ `cuckoo`, без venv** (или `ваш_пользователь`)
+
+[source,shell]
+----
+nc -zv 192.168.122.105 8000
+----
+
+image::utm/cuckoo-sandbox/kvm/W10-21-agent-port-8000.png[Agent :8000]
+
+[[win10-action-center]]
+=== Action Center и уведомления
+
+**→ guest Win10**, этап **9**. После Agent, **до** этапа Defender (<<win10-defender-off>>) и снапшота `clean`.
+
+**Зачем:** модуль Cuckoo `human` ищет кнопки по подстрокам в подписях. Текст «No **new** notifications» в Action Center содержит **new** → бесконечные клики по трею, таймаут анализа, на скриншотах нет окна сэмпла. Иконку и тосты отключаем в guest. Для GUI-сэмплов на host — **`human=0`**, см. xref:utm/cuckoo-sandbox/troubleshooting.adoc#human-action-center[troubleshooting].
+
+==== Отключить Action Center и уведомления (guest)
+
+1. **Settings → System → Focus assist** → **Off**.
+2. **Settings → System → Notifications & actions**:
+   * **Get notifications from apps and other senders** — **Off**
+   * советы Windows / welcome — **Off**
+   * в списке **Action Center** — отключить лишние источники
+3. **Скрыть иконку Action Center в трее** (рекомендуется):
+   * поиск Windows: **System icons** → **Turn system icons on or off**
+   * (или **Settings → Personalization → Taskbar → Turn system icons on or off**)
+   * **Action Center** → **Off** — иконка в трее исчезает
+4. *Опционально* в `gpedit.msc`: **User Configuration → Administrative Templates → Start Menu and Taskbar** → **Turn off toast notifications** → **Enabled**.
+5. **Перезагрузить** guest → в трее **нет** кнопки Action Center.
+
+[[win10-defender-off]]
+=== Полное отключение Defender (реестр + Safe Mode)
+
+**→ guest Win10**, этап **10**, **до** снапшота `clean` (этап 11). Без этого анализ малвари падает с **Error 225** («file contains a virus…»). Порядок:
+
+1. Обычный режим — UI + gpedit + реестр Policies (часть уже в <<win10-firewall>> выше).
+2. **Safe Mode** — служба **WinDefend** → **Start = 4**.
+3. Обычный режим — проверка → снапшот `clean`.
+
+xref:utm/cuckoo-sandbox/troubleshooting.adoc#defender-error-225[Error 225 — troubleshooting].
+
+==== A. Реестр Policies (обычный режим)
+
+**Win+R** → `regedit`
+
+**1)** `HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows Defender` (раздел создать, если нет)
+
+DWORD (32-bit):
+
+[cols="2,1",options="header"]
+|===
+| Имя | Значение
+| DisableAntiSpyware | 1
+| AllowFastServiceStartup | 0
+| ServiceKeepAlive | 0
+|===
+
+**2)** `...\Windows Defender\Real-Time Protection` (раздел создать)
+
+[cols="2,1",options="header"]
+|===
+| Имя | Значение
+| DisableIOAVProtection | 1
+| DisableRealtimeMonitoring | 1
+|===
+
+*После **Disable** в `DisableIOAVProtection` — большая **I** (IOAV), не буква L.*
+
+**3)** `...\Windows Defender\Spynet` (раздел создать)
+
+[cols="2,1",options="header"]
+|===
+| Имя | Значение
+| DisableBlockAtFirstSeen | 1
+| LocalSettingOverrideSpynetReporting | 0
+| SubmitSamplesConsent | 2
+|===
+
+Плюс: **Windows Security** — всё Off; **gpedit** → **Turn off Microsoft Defender Antivirus** → **Enabled** (см. <<win10-firewall>>).
+
+==== B. Загрузка в Safe Mode
+
+**Способ 1 — `msconfig`:**
+
+1. **Win+R** → `msconfig` → вкладка **Boot**
+2. **Safe boot** → **Minimal** → **OK** → **Restart**
+
+**Способ 2:** **Shift** + **Restart** (Пуск → Power).
+
+==== C. В Safe Mode — WinDefend
+
+1. **Win+R** → `regedit`
+2. `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WinDefend`
+3. **Start** → **4** (Disabled); было **2** (Automatic) или **3** (Manual)
+
+По желанию: `...\Services\wscsvc` → **Start** = **4**; `...\Services\Sense` → **Start** = **4** (если есть).
+
+4. **Win+R** → `msconfig` → **Boot** → снять **Safe boot** → **Restart** (иначе снова Safe Mode).
+
+==== D. Проверка (обычный режим)
+
+* **services.msc** → **Windows Defender Antivirus Service** — **Stopped**, не Running
+* **Windows Security** — всё Off
+* Тест: `.exe` или eicar на рабочий стол — **не** удаляется сразу
+* Agent: с host `nc -zv 192.168.122.105 8000` → succeeded
+
+Только после этого — снапшот `clean` ниже.
+
+[[win10-snapshot]]
+=== Снапшот clean
+
+**→ virt-manager + host**, этап **11**. ISO к CDROM уже **не** подключён (<<win10-iso-off>>). Defender полностью отключён (<<win10-defender-off>>).
+
+**Когда снимать:** guest **запущен** (**Running** в virt-manager), Windows **полностью загружена**, вы на **рабочем столе** пользователя `cuckoo`. **Не** выключайте VM перед снапшотом — baseline «clean» должен быть с поднятой системой и Agent.
+
+Перед снимком проверьте:
+
+* **Task Manager** → **Details** → **pythonw.exe** (Agent)
+* На host: `nc -zv 192.168.122.105 8000` → succeeded
+
+**→ `cuckoo`, без venv**
+
+С host выполняйте **не выключая** guest: в virt-manager статус **Running**, в окне VM — **рабочий стол** (не экран входа, не установщик). Затем:
+
+**Первый снапшот** (ещё нет `clean`):
+
+[source,shell]
+----
+virsh snapshot-create-as win10 clean --description "Clean baseline - Defender off"
+----
+
+**Обновление** после правок guest (в т.ч. Defender): удалить старый, создать новый (**без** `snapshot-revert`):
+
+[source,shell]
+----
+virsh snapshot-delete win10 clean
+virsh snapshot-create-as win10 clean --description "Clean baseline - Defender off"
+----
+
+[[inetsim-setup]]
+== Установка и настройка InetSim
+
+**→ host**, один раз **до** запуска Cuckoo и любых submit. InetSim подменяет DNS/HTTP для guest; для `route=inetsim` нужны также **rooter** (T0) и **IP forwarding**.
+
+В `~/.cuckoo/conf/routing.conf` секция `[inetsim]` уже задана при полной конфигурации host (<<routing-inetsim-conf>>); здесь — установка службы и sysctl на host.
+
+[[routing-inetsim-conf]]
+**→ `cuckoo`, без venv** — проверить `routing.conf`:
+
+[source,ini]
+----
+[routing]
+route = none
+
+[inetsim]
+enabled = yes
+server = 127.0.0.1
+ports =
+----
+
+**→ `ваш_пользователь`, sudo** — модули, forwarding, пакет:
+
+[source,shell]
+----
+sudo modprobe br_netfilter
+echo br_netfilter | sudo tee /etc/modules-load.d/cuckoo-bridge.conf
+sudo tee /etc/sysctl.d/99-cuckoo-bridge.conf << 'EOF'
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward = 1
+net.ipv4.conf.all.route_localnet = 1
+EOF
+sudo sysctl --system
+sudo apt-get install -y inetsim
+----
+
+**→ `ваш_пользователь`, sudo** — `/etc/inetsim/inetsim.conf` (синтаксис InetSim 1.2.7: **пробел**, не `=`). В файле эти строки по умолчанию **закомментированы** — снимите **`#`** в начале каждой строки (или добавьте параметры без `#`):
+
+[source]
+----
+service_bind_address 127.0.0.1
+dns_bind_port        53
+dns_default_ip       192.168.122.1
+----
+
+[source,shell]
+----
+sudo systemctl enable inetsim
+sudo systemctl restart inetsim
+sudo systemctl status inetsim
+dig @127.0.0.1 example.com +short
+----
+
+Ожидается: **`192.168.122.1`** (одна строка — фейковый IP InetSim для любого домена). InetSim в `systemctl` — **active**. На `192.168.122.1:53` может сидеть **dnsmasq** libvirt — проверку DNS делайте только через **`@127.0.0.1`**, не через `.1`.
+
+image::utm/cuckoo-sandbox/kvm/A8-4-inetsim-conf-bind-dns.png[InetSim conf]
+image::utm/cuckoo-sandbox/kvm/A8-4-routing-conf-inetsim.png[routing.conf]
+
+Отладка — xref:utm/cuckoo-sandbox/troubleshooting.adoc#inetsim-not-working[InetSim troubleshooting].
+
+== Запуск Cuckoo (каждая сессия)
+
+Перед submit: **InetSim запущен** (`systemctl status inetsim`), guest из снапшота **`clean`**.
+
+Четыре **отдельных терминала**:
+
+[cols="1,1,2,2",options="header"]
+|===
+| T | Кто | Команда | Назначение
+| T0 | **`ваш_пользователь`, sudo** | `sudo /home/cuckoo/venv/bin/cuckoo rooter -g cuckoo` | rooter (iptables для InetSim)
+| T1 | **`cuckoo`, venv** | `cuckoo` | scheduler
+| T2 | **`cuckoo`, venv** | `cuckoo web -H 0.0.0.0 -p 8080` | Web UI (**опционально**, GUI отчётов)
+| T3 | **`cuckoo`, venv** | `cuckoo api -H 0.0.0.0 -p 8090` | REST API (**опционально**)
+|===
+
+**T0** — из-под **`ваш_пользователь`** (sudo), **не** из venv. Бинарник Cuckoo: **`/home/cuckoo/venv/bin/cuckoo`** (venv пользователя `cuckoo`). Не пишите `~/venv` — при sudo это будет `/home/ваш_пользователь/venv` и `command not found`.
+
+**T1** (scheduler) — **обязателен** для любого анализа. **T2** (Web UI) — **опционально**, если нужно **просматривать результаты в браузере** (GUI); без T2 submit из терминала всё равно работает, отчёты лежат на диске в `~/.cuckoo/storage/`. **T3** (REST API) — **опционально**, если нужен submit/статус через HTTP API.
+
+Минимум для lab с InetSim: **T0 + T1**. Добавляйте **T2** и/или **T3** по необходимости.
+
+**T1** (и **T2** / **T3**, если запускаете) — Linux-пользователь **`cuckoo`**, virtualenv **`/home/cuckoo/venv`** (тот же, где ставили `cuckoo==2.0.7` в начале инструкции). **Не** venv от `ваш_пользователь` — у админа своего venv нет или он пустой.
+
+В **каждом** нужном терминале (минимум **один** — T1; **T2** и **T3** — отдельные терминалы, по желанию):
+
+1. Войти под **`cuckoo`** (если prompt показывает `ваш_пользователь@…`):
+
+[source,shell]
+----
+sudo su - cuckoo
+----
+
+2. Активировать venv (**`~`** здесь = `/home/cuckoo`):
+
+[source,shell]
+----
+source ~/venv/bin/activate
+----
+
+Ожидаемый prompt: **`(venv) cuckoo@hostname:~$`**.
+
+3. Проверка (опционально):
+
+[source,shell]
+----
+which cuckoo
+# /home/cuckoo/venv/bin/cuckoo
+----
+
+4. Запустить команду из таблицы для этого терминала:
+
+* **T1:** `cuckoo` — **обязательно**
+* **T2:** `cuckoo web -H 0.0.0.0 -p 8080` — **опционально** (GUI отчётов в браузере)
+* **T3:** `cuckoo api -H 0.0.0.0 -p 8090` — **опционально** (REST API)
+
+Если `cuckoo: command not found` — venv не активирован (`source ~/venv/bin/activate`) или вы не под пользователем **`cuckoo`**.
+
+[[submit-options]]
+== Постановка задач на анализ (submit)
+
+**→ `cuckoo`, venv** (T1 запущен; для `route=inetsim` — ещё **T0** и InetSim, см. <<inetsim-setup>>).
+
+Базовый синтаксис:
+
+[source,shell]
+----
+cuckoo submit --options "ключ=значение,..." /путь/к/файлу
+cuckoo submit --package ПАКЕТ --options "..." http://url
+----
+
+Пакет (`--package`) Cuckoo часто подбирает сам по типу файла. Явно указывайте **`exe`**, **`ie`**, **`zip`**, **`dll`** и т.д., если автоопределение ошиблось. Полный список — `analyzer/windows/modules/packages/` в исходниках Cuckoo и link:https://cuckoo.readthedocs.io/en/latest/usage/packages.html[packages.rst].
+
+=== Параметры `--options`
+
+[cols="2,3",options="header"]
+|===
+| Параметр | Назначение
+| `human=0` | Отключить модуль **Human** (эмуляция мыши, клики по кнопкам «Next», «OK»). Без него на Win10 analyzer может зациклиться на Action Center («No **new** notifications» содержит подстроку **new**). Для **GUI-сэмплов и малвари** в lab — **всегда** `human=0` (guest настраивается в <<win10-action-center>>).
+| `free=yes` | Запуск **без** cuckoo-monitor: behavioral-логов API не будет, процесс «живёт сам». Только отладка GUI (например, виден ли диалог mspaint). **Не** используйте для анализа малвари — нужен monitor и дерево процессов.
+| `route=inetsim` | Трафик guest через **InetSim** на host (фейковые DNS/HTTP). Меньше шума, чем NAT в интернет. Нужны **T0** (rooter), `enabled = yes` в `routing.conf` и `systemctl status inetsim` → active.
+| `enforce_timeout=yes` | Анализ идёт **весь** timeout из `cuckoo.conf` (`[cuckoo]` → `analysis_timeout`), без досрочного завершения, когда все отслеживаемые процессы уже вышли. Полезно для URL/IE и долгих сценариев.
+| `procmemdump=yes` | Дампы памяти **отслеживаемых** процессов (не полный снимок VM).
+| `password=…`, `file=…` | Только пакет **`zip`**: пароль архива и имя файла внутри для запуска.
+| `arguments=…` | Аргументы командной строки для **`exe`** / **`dll`** / **`zip`** (см. packages.rst).
+|===
+
+Отдельные флаги CLI (не в `--options`):
+
+* **`--memory`** — полный дамп RAM guest после анализа (для Volatility, <<volatility-setup>>). Часто вместе с `free=yes`, чтобы хуки monitor не искажали память.
+* **`--enforce-timeout`** — то же, что `enforce_timeout=yes` в options.
+* **`--package ie`** — URL открывает **Internet Explorer** в guest (отдельный браузер не ставим).
+
+=== Типичные сочетания
+
+**Исполняемый файл (малварь, тестовый .exe):**
+
+[source,shell]
+----
+cuckoo submit --options "human=0,route=inetsim" /path/to/sample.exe
+----
+
+`route=inetsim` опционален, если сеть не нужна — достаточно `human=0`.
+
+**URL (InetSim + IE):**
+
+[source,shell]
+----
+cuckoo submit --package ie \
+  --options "human=0,route=inetsim,enforce_timeout=yes" \
+  http://example.com
+----
+
+**ZIP с паролем:**
+
+[source,shell]
+----
+cuckoo submit --package zip \
+  --options "human=0,password=ПАРОЛЬ,file=payload.exe" \
+  sample.zip
+----
+
+Статус задачи: `cuckoo status <id>`; отчёты — `~/.cuckoo/storage/analyses/<id>/` или Web UI (**T2**). Ошибки submit/анализа — xref:utm/cuckoo-sandbox/troubleshooting.adoc[Troubleshooting].
+
+[[volatility-setup]]
+== Volatility (опционально)
+
+**→ `cuckoo`, venv**
+
+[source,shell]
+----
+pip install pycrypto distorm3
+git clone https://github.com/volatilityfoundation/volatility.git ~/volatility
+cd ~/volatility && git checkout master && python setup.py install
+vol.py --info | grep Win10x64_19041
+----
+
+`memory.conf` / `kvm.conf`: **Win10x64_19041** — правка от **`cuckoo`**, venv не нужен. Routine: `memory_dump = no`, `[memory] enabled = no`.
+
+image::utm/cuckoo-sandbox/kvm/A8-3-volatility-19041-pslist-ok.png[pslist 19041]
+
+== REST API
+
+Один раз в venv (если ещё не ставили), затем T3 — **`cuckoo`, venv**
+
+[source,shell]
+----
+source ~/venv/bin/activate
+pip install werkzeug==0.16.1
+cuckoo api -H 0.0.0.0 -p 8090
+----
+
+'''
+
+Следующая страница: xref:utm/cuckoo-sandbox/perfomance.adoc[Анализ производительности и варианты оптимизации Cuckoo Sandbox].
